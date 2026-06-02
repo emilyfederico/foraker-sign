@@ -84,7 +84,10 @@ export default function SignIn({ loaderData }: Route.ComponentProps) {
           src="/foraker-logo.png"
           alt="Foraker Sign"
           className="h-12 w-auto"
-          style={{ mixBlendMode: 'multiply' }}
+          style={{
+            filter:
+              'brightness(0) saturate(100%) invert(12%) sepia(20%) saturate(800%) hue-rotate(185deg) brightness(90%)',
+          }}
         />
       </div>
 
