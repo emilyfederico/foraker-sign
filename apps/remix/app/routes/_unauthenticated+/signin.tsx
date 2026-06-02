@@ -80,7 +80,12 @@ export default function SignIn({ loaderData }: Route.ComponentProps) {
   return (
     <div className="w-screen max-w-lg px-4">
       <div className="mb-6 flex justify-center">
-        <img src="/foraker-logo.png" alt="Foraker Sign" className="h-12 w-auto" />
+        <img
+          src="/foraker-logo.png"
+          alt="Foraker Sign"
+          className="h-12 w-auto"
+          style={{ mixBlendMode: 'multiply' }}
+        />
       </div>
 
       <div className="z-10 rounded-xl border border-border bg-neutral-100 p-6 dark:bg-background">
