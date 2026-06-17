@@ -25,14 +25,6 @@ export async function action({ request }: { request: Request }) {
     return Response.json({ error: 'Missing templateId' }, { status: 400 });
   }
 
-  const price = property.price
-    ? new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        maximumFractionDigits: 0,
-      }).format(property.price as number)
-    : '';
-
   const title = `${String(property.address)} - Contract`;
 
   try {
@@ -45,13 +37,6 @@ export async function action({ request }: { request: Request }) {
       body: JSON.stringify({
         title,
         recipients,
-        prefillFields: [
-          { label: 'Property Address', value: String(property.address ?? '') },
-          { label: 'City', value: String(property.city ?? '') },
-          { label: 'County', value: String(property.county ?? '') },
-          { label: 'Purchase Price', value: price },
-          { label: 'MLS Number', value: String(property.mlsNumber ?? '') },
-        ],
       }),
     });
 
