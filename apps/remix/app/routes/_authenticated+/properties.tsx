@@ -5,9 +5,9 @@ import { useLoaderData, useSearchParams } from 'react-router';
 import { prisma } from '@documenso/prisma';
 
 const TEMPLATE_IDS: Record<string, string> = {
-  MD: 'envelope_ehhkmtoavtzehidr',
-  DE: 'envelope_frxrloufaakhzovu',
-  PA: 'envelope_mbmsavzmmtflutns',
+  MD: '1',
+  DE: '2',
+  PA: '3',
 };
 
 export async function loader({ request }: { request: Request }) {
