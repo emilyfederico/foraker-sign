@@ -1,6 +1,7 @@
 const DOCUMENSO_API_TOKEN =
   process.env.DOCUMENSO_API_TOKEN ?? 'foraker-sign-api-76852597039f0c559b3e18d38dfd4ec6';
 const WEBAPP_URL = process.env.NEXT_PUBLIC_WEBAPP_URL ?? 'https://sign.foraker.ai';
+const TEMPLATE_TEAM_URL = 'personal_awsdwlueddrcixnf';
 
 export async function action({ request }: { request: Request }) {
   if (request.method !== 'POST') {
@@ -51,7 +52,7 @@ export async function action({ request }: { request: Request }) {
     }
 
     const documentId = data.documentId ?? data.id;
-    const url = `${WEBAPP_URL}/documents/${documentId}`;
+    const url = `${WEBAPP_URL}/t/${TEMPLATE_TEAM_URL}/documents/${documentId}`;
 
     return Response.json({ url });
   } catch (err) {
