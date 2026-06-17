@@ -65,6 +65,10 @@ export const AppNavDesktop = ({
         href: '/properties',
         label: msg`Properties`,
       },
+      {
+        href: '/import-properties',
+        label: msg`Import`,
+      },
     ];
   }, [currentTeam, organisations]);
 

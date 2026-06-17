@@ -74,6 +74,10 @@ export const AppNavMobile = ({ isMenuOpen, onMenuOpenChange }: AppNavMobileProps
         text: t`Properties`,
       },
       {
+        href: '/import-properties',
+        text: t`Import`,
+      },
+      {
         href: '/inbox',
         text: t`Inbox`,
       },
