@@ -1,7 +1,6 @@
 import { useState } from 'react';
 
-import { type LoaderFunctionArgs, json } from '@remix-run/node';
-import { useLoaderData, useSearchParams } from '@remix-run/react';
+import { useLoaderData, useSearchParams } from 'react-router';
 
 import { prisma } from '@documenso/prisma';
 
@@ -11,7 +10,7 @@ const TEMPLATE_IDS: Record<string, string> = {
   PA: 'envelope_mbmsavzmmtflutns',
 };
 
-export async function loader({ request }: LoaderFunctionArgs) {
+export async function loader({ request }: { request: Request }) {
   const url = new URL(request.url);
   const city = url.searchParams.get('city') || '';
   const status = url.searchParams.get('status') || '';
@@ -51,10 +50,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
     take: 200,
   });
 
-  return json({
+  return Response.json({
     properties,
-    cities: cities.map((c) => c.city),
-    statuses: statuses.map((s) => s.status),
+    cities: cities.map((c: { city: string }) => c.city),
+    statuses: statuses.map((s: { status: string }) => s.status),
     filters: { city, status, search },
   });
 }
@@ -209,7 +208,7 @@ export default function PropertiesPage() {
   const [selected, setSelected] = useState<Property | null>(null);
 
   function updateFilter(key: string, value: string) {
-    setSearchParams((prev) => {
+    setSearchParams((prev: URLSearchParams) => {
       const next = new URLSearchParams(prev);
       if (value) next.set(key, value);
       else next.delete(key);
@@ -242,7 +241,7 @@ export default function PropertiesPage() {
           className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a7c59]"
         >
           <option value="">All Cities</option>
-          {cities.map((c) => (
+          {cities.map((c: string) => (
             <option key={c} value={c}>
               {c}
             </option>
@@ -255,7 +254,7 @@ export default function PropertiesPage() {
           className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a7c59]"
         >
           <option value="">All Statuses</option>
-          {statuses.map((s) => (
+          {statuses.map((s: string) => (
             <option key={s} value={s}>
               {STATUS_LABELS[s] ?? s}
             </option>
@@ -270,7 +269,7 @@ export default function PropertiesPage() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {properties.map((p) => (
+          {(properties as Property[]).map((p) => (
             <button
               key={p.id}
               onClick={() => setSelected(p as Property)}

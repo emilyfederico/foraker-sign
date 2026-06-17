@@ -1,5 +1,3 @@
-import { type ActionFunctionArgs, json } from '@remix-run/node';
-
 import { prisma } from '@documenso/prisma';
 
 const SYNC_SECRET = process.env.PROPERTY_SYNC_SECRET ?? 'foraker-sync-secret';
@@ -29,15 +27,15 @@ function parseDate(dateStr: string): Date | null {
   }
 }
 
-export async function action({ request }: ActionFunctionArgs) {
+export async function action({ request }: { request: Request }) {
   if (request.method !== 'POST') {
-    return json({ error: 'Method not allowed' }, { status: 405 });
+    return Response.json({ error: 'Method not allowed' }, { status: 405 });
   }
 
   // Verify secret
   const secret = request.headers.get('x-sync-secret');
   if (secret !== SYNC_SECRET) {
-    return json({ error: 'Unauthorized' }, { status: 401 });
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   let body: { properties: Record<string, string>[]; source: string };
@@ -45,13 +43,13 @@ export async function action({ request }: ActionFunctionArgs) {
   try {
     body = await request.json();
   } catch {
-    return json({ error: 'Invalid JSON' }, { status: 400 });
+    return Response.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
   const { properties, source } = body;
 
   if (!Array.isArray(properties) || properties.length === 0) {
-    return json({ error: 'No properties provided' }, { status: 400 });
+    return Response.json({ error: 'No properties provided' }, { status: 400 });
   }
 
   let upserted = 0;
@@ -104,9 +102,9 @@ export async function action({ request }: ActionFunctionArgs) {
     }
   }
 
-  return json({ success: true, upserted, errors });
+  return Response.json({ success: true, upserted, errors });
 }
 
 export function loader() {
-  return json({ status: 'Property sync endpoint active' });
+  return Response.json({ status: 'Property sync endpoint active' });
 }
