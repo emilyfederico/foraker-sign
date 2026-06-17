@@ -1121,3 +1121,28 @@ model RateLimit {
   @@id([key, action, bucket])
   @@index([createdAt])
 }
+
+model Property {
+  id         String   @id @default(cuid())
+  mlsNumber  String   @unique
+  category   String?
+  status     String
+  address    String
+  city       String
+  county     String
+  state      String   @default("DE")
+  beds       Int?
+  baths      String?
+  structureType String?
+  contractDate  DateTime?
+  listOfficeName String?
+  price      Int?
+  sourceSheet String?
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([city])
+  @@index([status])
+  @@index([mlsNumber])
+}
