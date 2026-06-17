@@ -202,8 +202,15 @@ function PropertyModal({ property, onClose }: { property: Property; onClose: () 
   );
 }
 
+type LoaderData = {
+  properties: Property[];
+  cities: string[];
+  statuses: string[];
+  filters: { city: string; status: string; search: string };
+};
+
 export default function PropertiesPage() {
-  const { properties, cities, statuses, filters } = useLoaderData<typeof loader>();
+  const { properties, cities, statuses, filters } = useLoaderData() as LoaderData;
   const [, setSearchParams] = useSearchParams();
   const [selected, setSelected] = useState<Property | null>(null);
 
