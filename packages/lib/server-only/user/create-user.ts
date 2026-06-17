@@ -6,6 +6,7 @@ import { prisma } from '@documenso/prisma';
 import { SALT_ROUNDS } from '../../constants/auth';
 import { AppError, AppErrorCode } from '../../errors/app-error';
 import { createPersonalOrganisation } from '../organisation/create-organisation';
+import { copyDefaultTemplatesToUser } from './copy-default-templates';
 
 export interface CreateUserOptions {
   name: string;
@@ -66,7 +67,23 @@ export const createUser = async ({ name, email, password, signature }: CreateUse
  * @returns User
  */
 export const onCreateUserHook = async (user: User) => {
-  await createPersonalOrganisation({ userId: user.id });
+  const organisation = await createPersonalOrganisation({ userId: user.id });
+
+  // Copy the Foraker purchase agreement templates (MD, DE, PA) to every new user.
+  if (organisation) {
+    const personalTeam = await prisma.team.findFirst({
+      where: { organisationId: organisation.id },
+      select: { id: true },
+    });
+
+    if (personalTeam) {
+      await copyDefaultTemplatesToUser({ userId: user.id, teamId: personalTeam.id }).catch(
+        (err) => {
+          console.error('Failed to copy default templates to new user:', err);
+        },
+      );
+    }
+  }
 
   return user;
 };
