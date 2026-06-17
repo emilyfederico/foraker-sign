@@ -183,7 +183,7 @@ export const createPersonalOrganisation = async ({
   if (organisation) {
     await createTeam({
       userId,
-      teamName: 'Personal Team',
+      teamName: 'Foraker Realty',
       teamUrl: prefixedId('personal'),
       organisationId: organisation.id,
       inheritMembers,
