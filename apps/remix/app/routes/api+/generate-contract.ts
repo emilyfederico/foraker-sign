@@ -7,7 +7,11 @@ export async function action({ request }: { request: Request }) {
     return Response.json({ error: 'Method not allowed' }, { status: 405 });
   }
 
-  let body: { templateId: string; property: Record<string, unknown> };
+  let body: {
+    templateId: string;
+    property: Record<string, unknown>;
+    recipients?: { id: number; name: string; email: string }[];
+  };
 
   try {
     body = await request.json();
@@ -15,7 +19,7 @@ export async function action({ request }: { request: Request }) {
     return Response.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const { templateId, property } = body;
+  const { templateId, property, recipients = [] } = body;
 
   if (!templateId) {
     return Response.json({ error: 'Missing templateId' }, { status: 400 });
@@ -40,6 +44,7 @@ export async function action({ request }: { request: Request }) {
       },
       body: JSON.stringify({
         title,
+        recipients,
         prefillFields: [
           { label: 'Property Address', value: String(property.address ?? '') },
           { label: 'City', value: String(property.city ?? '') },

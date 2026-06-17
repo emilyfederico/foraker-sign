@@ -10,6 +10,13 @@ const TEMPLATE_IDS: Record<string, string> = {
   PA: '3',
 };
 
+// Recipient IDs from the template in Documenso (one signer per template).
+const TEMPLATE_RECIPIENT_IDS: Record<string, number> = {
+  MD: 4,
+  DE: 5,
+  PA: 7,
+};
+
 export async function loader({ request }: { request: Request }) {
   const url = new URL(request.url);
   const city = url.searchParams.get('city') || '';
@@ -109,9 +116,18 @@ type Property = {
 
 function PropertyModal({ property, onClose }: { property: Property; onClose: () => void }) {
   const [generating, setGenerating] = useState(false);
+  const [buyerName, setBuyerName] = useState('');
+  const [buyerEmail, setBuyerEmail] = useState('');
+
+  const stateKey = property.state ?? 'DE';
 
   async function handleGenerateContract() {
-    const templateId = TEMPLATE_IDS[property.state ?? 'MD'];
+    if (!buyerName.trim() || !buyerEmail.trim()) {
+      alert('Please enter buyer name and email before generating.');
+      return;
+    }
+    const templateId = TEMPLATE_IDS[stateKey];
+    const recipientId = TEMPLATE_RECIPIENT_IDS[stateKey];
     if (!templateId) {
       alert('No contract template found for state: ' + property.state);
       return;
@@ -121,7 +137,11 @@ function PropertyModal({ property, onClose }: { property: Property; onClose: () 
       const res = await fetch('/api/generate-contract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ templateId, property }),
+        body: JSON.stringify({
+          templateId,
+          property,
+          recipients: [{ id: recipientId, name: buyerName.trim(), email: buyerEmail.trim() }],
+        }),
       });
       const data = await res.json();
       if (data.url) {
@@ -189,10 +209,28 @@ function PropertyModal({ property, onClose }: { property: Property; onClose: () 
             <p className="mt-3 text-xs text-gray-400">Listed by: {property.listOfficeName}</p>
           )}
 
+          <div className="mt-4 space-y-2">
+            <p className="text-xs font-medium text-gray-700">Buyer Information</p>
+            <input
+              type="text"
+              placeholder="Buyer full name"
+              value={buyerName}
+              onChange={(e) => setBuyerName(e.target.value)}
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a7c59]"
+            />
+            <input
+              type="email"
+              placeholder="Buyer email address"
+              value={buyerEmail}
+              onChange={(e) => setBuyerEmail(e.target.value)}
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a7c59]"
+            />
+          </div>
+
           <button
             onClick={handleGenerateContract}
             disabled={generating}
-            className="mt-5 w-full rounded-lg bg-[#4a7c59] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#3d6649] disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-4 w-full rounded-lg bg-[#4a7c59] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#3d6649] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {generating ? 'Generating...' : 'Generate Contract'}
           </button>
