@@ -171,6 +171,7 @@ export async function action({ request }: { request: Request }) {
       {
         reply:
           'I had trouble understanding that. Try: "Make a PA contract for 123 Main St, buyer John Smith".',
+        debug: err instanceof Error ? err.message : String(err),
       },
       { status: 200 },
     );
