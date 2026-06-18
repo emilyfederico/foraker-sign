@@ -66,6 +66,52 @@ function buildPrefillFields(
     .filter((f) => f.value !== '');
 }
 
+// Shared contract-generation logic, reused by both the form-driven action below
+// and the natural-language chat endpoint (/api/chat-contract).
+export async function generateContractDocument({
+  templateId,
+  property,
+  recipients = [],
+}: {
+  templateId: string;
+  property: Record<string, unknown>;
+  recipients?: { id: number; name: string; email: string }[];
+}): Promise<{ url: string } | { error: string }> {
+  const title = `${String(property.address)} - Contract`;
+  const buyerName = recipients[0]?.name ?? '';
+  const prefillFields = buildPrefillFields(templateId, property, buyerName);
+
+  try {
+    const res = await fetch(`${WEBAPP_URL}/api/v1/templates/${templateId}/generate-document`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${DOCUMENSO_API_TOKEN}`,
+      },
+      body: JSON.stringify({
+        title,
+        recipients,
+        prefillFields,
+      }),
+    });
+
+    const data = (await res.json()) as { documentId?: string; id?: string; message?: string };
+
+    if (!res.ok) {
+      console.error('Documenso error:', data);
+      return { error: data.message ?? 'Failed to generate document' };
+    }
+
+    const documentId = data.documentId ?? data.id;
+    const url = `${WEBAPP_URL}/t/${TEMPLATE_TEAM_URL}/documents/${documentId}`;
+
+    return { url };
+  } catch (err) {
+    console.error('Generate contract error:', err);
+    return { error: 'Failed to generate contract' };
+  }
+}
+
 export async function action({ request }: { request: Request }) {
   if (request.method !== 'POST') {
     return Response.json({ error: 'Method not allowed' }, { status: 405 });
@@ -89,42 +135,13 @@ export async function action({ request }: { request: Request }) {
     return Response.json({ error: 'Missing templateId' }, { status: 400 });
   }
 
-  const title = `${String(property.address)} - Contract`;
-  const buyerName = recipients[0]?.name ?? '';
-  const prefillFields = buildPrefillFields(templateId, property, buyerName);
+  const result = await generateContractDocument({ templateId, property, recipients });
 
-  try {
-    const res = await fetch(`${WEBAPP_URL}/api/v1/templates/${templateId}/generate-document`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${DOCUMENSO_API_TOKEN}`,
-      },
-      body: JSON.stringify({
-        title,
-        recipients,
-        prefillFields,
-      }),
-    });
-
-    const data = (await res.json()) as { documentId?: string; id?: string; message?: string };
-
-    if (!res.ok) {
-      console.error('Documenso error:', data);
-      return Response.json(
-        { error: data.message ?? 'Failed to generate document' },
-        { status: 500 },
-      );
-    }
-
-    const documentId = data.documentId ?? data.id;
-    const url = `${WEBAPP_URL}/t/${TEMPLATE_TEAM_URL}/documents/${documentId}`;
-
-    return Response.json({ url });
-  } catch (err) {
-    console.error('Generate contract error:', err);
-    return Response.json({ error: 'Failed to generate contract' }, { status: 500 });
+  if ('error' in result) {
+    return Response.json({ error: result.error }, { status: 500 });
   }
+
+  return Response.json(result);
 }
 
 export function loader() {

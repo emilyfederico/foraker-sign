@@ -4,6 +4,8 @@ import { useLoaderData, useSearchParams } from 'react-router';
 
 import { prisma } from '@documenso/prisma';
 
+import { ContractChat } from '~/components/general/contract-chat';
+
 const TEMPLATE_IDS: Record<string, string> = {
   MD: '1',
   DE: '2',
@@ -342,6 +344,8 @@ export default function PropertiesPage() {
       )}
 
       {selected && <PropertyModal property={selected} onClose={() => setSelected(null)} />}
+
+      <ContractChat />
     </div>
   );
 }
