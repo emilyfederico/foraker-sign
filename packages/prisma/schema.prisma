@@ -1146,3 +1146,25 @@ model Property {
   @@index([status])
   @@index([mlsNumber])
 }
+
+// A "loop" — a real-estate transaction that bundles a property, its forms,
+// people, and a checklist. Property fields are a snapshot taken at creation so
+// the loop is self-contained even if the listing later changes.
+model Transaction {
+  id              String   @id @default(cuid())
+  address         String
+  city            String?
+  state           String?
+  mlsNumber       String?
+  price           Int?
+  beds            Int?
+  transactionType String   @default("PURCHASE") // PURCHASE | LISTING | LEASE
+  status          String   @default("ACTIVE") // ACTIVE | ARCHIVED
+  photoUrl        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}

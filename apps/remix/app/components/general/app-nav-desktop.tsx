@@ -54,6 +54,10 @@ export const AppNavDesktop = ({
 
     return [
       {
+        href: '/loops',
+        label: msg`Loops`,
+      },
+      {
         href: `/t/${teamUrl}/documents`,
         label: msg`Documents`,
       },
