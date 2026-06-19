@@ -3,7 +3,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { getSession } from '@documenso/auth/server/lib/utils/get-session';
 import { prisma } from '@documenso/prisma';
 
-import { generateContractDocument } from './generate-contract';
+import { generateContractDocument } from '~/utils/contract-generation.server';
 
 // Valid contract states (the contract is generated into the logged-in agent's
 // own workspace by generateContractDocument).
