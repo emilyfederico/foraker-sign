@@ -98,9 +98,10 @@ export const AppNavDesktop = ({
                   key={href}
                   to={href}
                   className={cn(
-                    'rounded-md font-medium leading-5 text-muted-foreground ring-offset-background hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-muted-foreground/60',
+                    // Foraker brand nav: uppercase, letter-spaced, white on charcoal.
+                    'border-b-2 border-transparent pb-1 text-xs font-medium uppercase leading-5 tracking-[0.14em] text-white/60 ring-offset-background transition-colors hover:text-white focus-visible:outline-none',
                     {
-                      'text-foreground dark:text-muted-foreground': pathname?.startsWith(href),
+                      'border-white text-white': pathname?.startsWith(href),
                     },
                   )}
                 >
