@@ -4,8 +4,8 @@ import { Link, redirect, useFetcher, useLoaderData, useSubmit } from 'react-rout
 
 import { prisma } from '@documenso/prisma';
 
-// dotloop-style accent blue, used across the Loops experience.
-const DL_BLUE = '#00a9e0';
+// Foraker charcoal accent, used across the Loops experience.
+const INK = '#262626';
 
 const TYPE_LABELS: Record<string, string> = {
   PURCHASE: 'Purchase',
@@ -150,7 +150,7 @@ function AddLoopModal({ onClose }: { onClose: () => void }) {
             <div key={label} className="flex flex-1 items-center">
               <span
                 className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold text-white"
-                style={{ backgroundColor: i === 0 ? DL_BLUE : '#cbd5e1' }}
+                style={{ backgroundColor: i === 0 ? INK : '#cbd5e1' }}
               >
                 {i + 1}
               </span>
@@ -163,7 +163,7 @@ function AddLoopModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="mt-8">
-          <label className="mb-1 block text-xs font-medium" style={{ color: DL_BLUE }}>
+          <label className="mb-1 block text-xs font-medium" style={{ color: INK }}>
             Property Address or MLS#
           </label>
           <input
@@ -175,7 +175,7 @@ function AddLoopModal({ onClose }: { onClose: () => void }) {
             }}
             placeholder="Start typing an address or MLS number…"
             className="w-full rounded-lg border-2 px-4 py-3 text-sm focus:outline-none"
-            style={{ borderColor: DL_BLUE }}
+            style={{ borderColor: INK }}
           />
 
           {/* Autocomplete results */}
@@ -193,7 +193,7 @@ function AddLoopModal({ onClose }: { onClose: () => void }) {
                       {r.state ? `, ${r.state}` : ''}
                     </span>
                     <span className="block text-xs text-gray-400">
-                      {r.listOfficeName ?? 'dotloop'}
+                      {r.listOfficeName ?? 'Foraker'}
                       {r.price ? ` · ${formatPrice(r.price)}` : ''}
                     </span>
                   </span>
@@ -214,7 +214,7 @@ function AddLoopModal({ onClose }: { onClose: () => void }) {
                   className="rounded-lg border px-4 py-2 text-sm font-medium transition-colors"
                   style={
                     type === value
-                      ? { backgroundColor: DL_BLUE, color: 'white', borderColor: DL_BLUE }
+                      ? { backgroundColor: INK, color: 'white', borderColor: INK }
                       : { color: '#374151', borderColor: '#e5e7eb' }
                   }
                 >
@@ -226,14 +226,14 @@ function AddLoopModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="mt-8 flex items-center justify-end gap-4">
-          <button onClick={onClose} className="text-sm font-medium" style={{ color: DL_BLUE }}>
+          <button onClick={onClose} className="text-sm font-medium" style={{ color: INK }}>
             Cancel
           </button>
           <button
             onClick={createLoop}
             disabled={!canContinue}
             className="rounded-full px-6 py-2.5 text-sm font-semibold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
-            style={{ backgroundColor: DL_BLUE }}
+            style={{ backgroundColor: INK }}
           >
             Continue
           </button>
@@ -262,7 +262,7 @@ export default function LoopsPage() {
               className="-mb-px border-b-2 pb-3 text-sm font-medium"
               style={
                 active
-                  ? { color: DL_BLUE, borderColor: DL_BLUE }
+                  ? { color: INK, borderColor: INK }
                   : { color: '#9ca3af', borderColor: 'transparent', cursor: 'default' }
               }
               title={active ? undefined : 'Coming soon'}
@@ -285,12 +285,12 @@ export default function LoopsPage() {
             void submit(data, { method: 'get' });
           }}
           className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2"
-          style={{ outlineColor: DL_BLUE }}
+          style={{ outlineColor: INK }}
         />
         <button
           onClick={() => setShowAdd(true)}
           className="shrink-0 rounded-full px-5 py-2.5 text-sm font-semibold text-white"
-          style={{ backgroundColor: DL_BLUE }}
+          style={{ backgroundColor: INK }}
         >
           + Add Loop
         </button>
@@ -312,7 +312,7 @@ export default function LoopsPage() {
             >
               <div
                 className="flex h-28 items-center justify-center"
-                style={{ background: `linear-gradient(135deg, ${DL_BLUE}, #0077b6)` }}
+                style={{ background: `linear-gradient(135deg, ${INK}, #0077b6)` }}
               >
                 <svg
                   className="h-10 w-10 text-white/80"
@@ -339,7 +339,7 @@ export default function LoopsPage() {
                     {TYPE_LABELS[loop.transactionType] ?? loop.transactionType}
                   </span>
                   {loop.price ? (
-                    <span className="text-sm font-bold" style={{ color: DL_BLUE }}>
+                    <span className="text-sm font-bold" style={{ color: INK }}>
                       {formatPrice(loop.price)}
                     </span>
                   ) : null}

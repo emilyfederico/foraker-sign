@@ -218,21 +218,21 @@ function PropertyModal({ property, onClose }: { property: Property; onClose: () 
               placeholder="Buyer full name"
               value={buyerName}
               onChange={(e) => setBuyerName(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a7c59]"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#262626]"
             />
             <input
               type="email"
               placeholder="Buyer email address"
               value={buyerEmail}
               onChange={(e) => setBuyerEmail(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a7c59]"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#262626]"
             />
           </div>
 
           <button
             onClick={handleGenerateContract}
             disabled={generating}
-            className="mt-4 w-full rounded-lg bg-[#4a7c59] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#3d6649] disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-4 w-full rounded-lg bg-[#262626] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#3d3d3d] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {generating ? 'Generating...' : 'Generate Contract'}
           </button>
@@ -279,13 +279,13 @@ export default function PropertiesPage() {
           placeholder="Search address or MLS#..."
           defaultValue={filters.search}
           onChange={(e) => updateFilter('search', e.target.value)}
-          className="w-64 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a7c59]"
+          className="w-64 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#262626]"
         />
 
         <select
           value={filters.city}
           onChange={(e) => updateFilter('city', e.target.value)}
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a7c59]"
+          className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#262626]"
         >
           <option value="">All Cities</option>
           {cities.map((c: string) => (
@@ -298,7 +298,7 @@ export default function PropertiesPage() {
         <select
           value={filters.status}
           onChange={(e) => updateFilter('status', e.target.value)}
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a7c59]"
+          className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#262626]"
         >
           <option value="">All Statuses</option>
           {statuses.map((s: string) => (
@@ -320,7 +320,7 @@ export default function PropertiesPage() {
             <button
               key={p.id}
               onClick={() => setSelected(p as Property)}
-              className="rounded-xl border border-gray-200 bg-white p-4 text-left transition-all hover:border-[#4a7c59] hover:shadow-md"
+              className="rounded-xl border border-gray-200 bg-white p-4 text-left transition-all hover:border-[#262626] hover:shadow-md"
             >
               <div className="flex items-start justify-between gap-2">
                 <span
@@ -333,7 +333,7 @@ export default function PropertiesPage() {
               <p className="mt-2 truncate font-semibold text-gray-900">{p.address}</p>
               <p className="text-sm text-gray-500">{p.city}</p>
               <div className="mt-3 flex items-center justify-between">
-                <span className="text-lg font-bold text-[#4a7c59]">{formatPrice(p.price)}</span>
+                <span className="text-lg font-bold text-[#262626]">{formatPrice(p.price)}</span>
                 <span className="text-sm text-gray-400">
                   {p.beds ?? '—'} bd · {p.baths ?? '—'} ba
                 </span>

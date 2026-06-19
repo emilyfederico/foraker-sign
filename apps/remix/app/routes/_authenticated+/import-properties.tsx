@@ -105,7 +105,7 @@ export default function ImportPropertiesPage() {
         onDrop={handleDrop}
         onDragOver={(e) => e.preventDefault()}
         onClick={() => inputRef.current?.click()}
-        className="mt-6 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 px-6 py-14 text-center transition-colors hover:border-[#4a7c59] hover:bg-green-50"
+        className="mt-6 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 px-6 py-14 text-center transition-colors hover:border-[#262626] hover:bg-green-50"
       >
         <svg
           className="mb-3 h-10 w-10 text-gray-400"
@@ -192,7 +192,7 @@ export default function ImportPropertiesPage() {
           <button
             onClick={handleSync}
             disabled={syncing || preview.rows.length === 0}
-            className="w-full rounded-lg bg-[#4a7c59] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#3d6649] disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full rounded-lg bg-[#262626] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#3d3d3d] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {syncing
               ? `Syncing ${preview.rows.length.toLocaleString()} properties…`

@@ -67,7 +67,7 @@ export function ContractChat() {
       {/* Floating toggle button */}
       <button
         onClick={() => setOpen((o) => !o)}
-        className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#4a7c59] text-white shadow-lg transition-transform hover:scale-105"
+        className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#262626] text-white shadow-lg transition-transform hover:scale-105"
         aria-label="Open contract assistant"
       >
         {open ? (
@@ -87,7 +87,7 @@ export function ContractChat() {
       {/* Chat panel */}
       {open && (
         <div className="fixed bottom-24 right-6 z-50 flex h-[28rem] w-[22rem] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl">
-          <div className="bg-[#4a7c59] px-4 py-3">
+          <div className="bg-[#262626] px-4 py-3">
             <p className="text-sm font-semibold text-white">Contract Assistant</p>
             <p className="text-xs text-green-100">Describe the contract you need</p>
           </div>
@@ -100,7 +100,7 @@ export function ContractChat() {
               >
                 <div
                   className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
-                    m.role === 'user' ? 'bg-[#4a7c59] text-white' : 'bg-gray-100 text-gray-800'
+                    m.role === 'user' ? 'bg-[#262626] text-white' : 'bg-gray-100 text-gray-800'
                   }`}
                 >
                   {m.text}
@@ -109,7 +109,7 @@ export function ContractChat() {
                       href={m.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="mt-2 block rounded-lg bg-white px-3 py-1.5 text-center text-xs font-semibold text-[#4a7c59] hover:bg-green-50"
+                      className="mt-2 block rounded-lg bg-white px-3 py-1.5 text-center text-xs font-semibold text-[#262626] hover:bg-green-50"
                     >
                       Open contract →
                     </a>
@@ -134,12 +134,12 @@ export function ContractChat() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Make a PA contract for…"
-                className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a7c59]"
+                className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#262626]"
               />
               <button
                 onClick={() => void send()}
                 disabled={sending || !input.trim()}
-                className="rounded-lg bg-[#4a7c59] px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#3d6649] disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-lg bg-[#262626] px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#3d3d3d] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Send
               </button>

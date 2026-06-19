@@ -2,7 +2,7 @@ import { Link, useLoaderData } from 'react-router';
 
 import { prisma } from '@documenso/prisma';
 
-const DL_BLUE = '#00a9e0';
+const INK = '#262626';
 
 const TYPE_LABELS: Record<string, string> = {
   PURCHASE: 'Purchase',
@@ -42,8 +42,8 @@ function DropZone({
 }) {
   return (
     <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 px-6 py-10 text-center">
-      <div style={{ color: DL_BLUE }}>{icon}</div>
-      <p className="mt-3 text-sm font-semibold" style={{ color: DL_BLUE }}>
+      <div style={{ color: INK }}>{icon}</div>
+      <p className="mt-3 text-sm font-semibold" style={{ color: INK }}>
         {title}
       </p>
       <p className="mt-1 text-xs text-gray-400">{description}</p>
@@ -57,10 +57,10 @@ export default function LoopDetailPage() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">
       <div className="mb-4 flex items-center justify-between text-sm">
-        <Link to="/loops" className="font-semibold" style={{ color: DL_BLUE }}>
+        <Link to="/loops" className="font-semibold" style={{ color: INK }}>
           ‹ BACK TO MY LOOPS
         </Link>
-        <span className="font-semibold tracking-wide" style={{ color: DL_BLUE }}>
+        <span className="font-semibold tracking-wide" style={{ color: INK }}>
           ACTIVITY LOG
         </span>
       </div>
@@ -69,7 +69,7 @@ export default function LoopDetailPage() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">{loop.address}</h1>
           <div className="mt-1 flex items-center gap-4 text-sm">
-            <span className="font-semibold tracking-wide" style={{ color: DL_BLUE }}>
+            <span className="font-semibold tracking-wide" style={{ color: INK }}>
               {(TYPE_LABELS[loop.transactionType] ?? loop.transactionType).toUpperCase()}
             </span>
             <span className="text-gray-400">
@@ -91,7 +91,7 @@ export default function LoopDetailPage() {
       <div className="mt-8 rounded-xl border border-gray-200 bg-white p-6">
         <div className="mb-1 flex items-center justify-between">
           <h2 className="text-xl font-bold text-gray-900">Add documents</h2>
-          <span className="text-sm font-semibold" style={{ color: DL_BLUE }}>
+          <span className="text-sm font-semibold" style={{ color: INK }}>
             ADD FOLDER
           </span>
         </div>
