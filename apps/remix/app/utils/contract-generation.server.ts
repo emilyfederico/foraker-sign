@@ -213,21 +213,160 @@ async function generateFromSimpleTemplate({
 }
 
 /**
- * Generate a contract in the logged-in agent's own workspace. Tries the full
- * fillable form first; falls back to the simple template if anything goes wrong.
+ * Preferred path: use the agent's *visible* rich template (the one shown in the
+ * Templates tab) and fill its AcroForm via formValues. Returns null if the agent
+ * has no such template (so the caller falls back to the embedded form).
+ */
+async function generateViaVisibleTemplate({
+  userId,
+  state,
+  property,
+  buyerName,
+  buyerEmail,
+  request,
+}: GenerateArgs): Promise<{ url: string } | null> {
+  const template = await prisma.envelope.findFirst({
+    where: {
+      userId,
+      type: EnvelopeType.TEMPLATE,
+      title: { startsWith: `${state} Contract` },
+    },
+    select: {
+      id: true,
+      teamId: true,
+      team: { select: { url: true } },
+      recipients: { select: { id: true } },
+    },
+  });
+
+  const recipient = template?.recipients[0];
+  if (!template || !recipient) {
+    return null;
+  }
+
+  const envelope = await createDocumentFromTemplate({
+    id: { type: 'envelopeId', id: template.id },
+    userId,
+    teamId: template.teamId,
+    recipients: [{ id: recipient.id, name: buyerName, email: buyerEmail }],
+    formValues: formValuesForState(state, property, buyerName),
+    override: { title: `${String(property.address)} - Contract` },
+    requestMetadata: {
+      source: 'app',
+      auth: 'session',
+      requestMetadata: extractRequestMetadata(request),
+    },
+  });
+
+  const documentId = mapSecondaryIdToDocumentId(envelope.secondaryId);
+  return { url: `${WEBAPP_URL}/t/${template.team.url}/documents/${documentId}` };
+}
+
+/**
+ * Generate a contract in the logged-in agent's own workspace.
+ * 1. Prefer the agent's visible Templates-tab template (Templates = source of truth).
+ * 2. Fall back to the embedded form so generation always works.
+ * 3. Last resort: the original simple template.
  */
 export async function generateContractDocument(
   args: GenerateArgs,
 ): Promise<{ url: string } | { error: string }> {
   try {
+    const viaTemplate = await generateViaVisibleTemplate(args);
+    if (viaTemplate) {
+      return viaTemplate;
+    }
+  } catch (err) {
+    console.error('Visible-template generation failed; trying embedded form:', err);
+  }
+
+  try {
     return await generateRichContract(args);
   } catch (err) {
-    console.error('Rich contract generation failed; falling back to template:', err);
+    console.error('Embedded-form generation failed; trying simple template:', err);
     try {
       return await generateFromSimpleTemplate(args);
     } catch (fallbackErr) {
-      console.error('Fallback contract generation failed:', fallbackErr);
+      console.error('All contract generation paths failed:', fallbackErr);
       return { error: 'Failed to generate contract' };
     }
   }
+}
+
+/**
+ * One-time setup: create the three rich contract templates (DE/PA/MD) in the
+ * owner's team so they appear in the Templates tab, with the AcroForm fields
+ * preserved (flattenForm: false) so formValues can fill them. Idempotent.
+ */
+export async function setupRichTemplates({
+  ownerEmail,
+  request,
+}: {
+  ownerEmail: string;
+  request?: Request;
+}): Promise<{ created: string[]; skipped: string[]; teamUrl: string }> {
+  const user = await prisma.user.findFirst({
+    where: { email: ownerEmail.toLowerCase() },
+    select: { id: true },
+  });
+  if (!user) {
+    throw new Error(`No user found for ${ownerEmail}`);
+  }
+
+  const team = await prisma.team.findFirst({
+    where: { organisation: { ownerUserId: user.id } },
+    select: { id: true, url: true },
+  });
+  if (!team) {
+    throw new Error('No team found for owner');
+  }
+
+  const created: string[] = [];
+  const skipped: string[] = [];
+
+  for (const state of ['DE', 'PA', 'MD']) {
+    const pdfBase64 = CONTRACT_FORMS_BASE64[state];
+    if (!pdfBase64) continue;
+
+    const title = `${state} Contract`;
+    const existing = await prisma.envelope.findFirst({
+      where: { teamId: team.id, type: EnvelopeType.TEMPLATE, title },
+      select: { id: true },
+    });
+    if (existing) {
+      skipped.push(state);
+      continue;
+    }
+
+    const documentData = await putNormalizedPdfFileServerSide(
+      {
+        name: `${title}.pdf`,
+        type: 'application/pdf',
+        arrayBuffer: async () => Promise.resolve(Buffer.from(pdfBase64, 'base64')),
+      },
+      { flattenForm: false },
+    );
+
+    await createEnvelope({
+      userId: user.id,
+      teamId: team.id,
+      internalVersion: 2,
+      normalizePdf: false,
+      data: {
+        type: EnvelopeType.TEMPLATE,
+        title,
+        envelopeItems: [{ documentDataId: documentData.id }],
+        recipients: [{ email: 'buyer@example.com', name: 'Buyer', role: RecipientRole.SIGNER }],
+      },
+      requestMetadata: {
+        source: 'app',
+        auth: null,
+        requestMetadata: request ? extractRequestMetadata(request) : {},
+      },
+    });
+
+    created.push(state);
+  }
+
+  return { created, skipped, teamUrl: team.url };
 }
