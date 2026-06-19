@@ -35,7 +35,7 @@ type GenerateArgs = {
 
 // Maps the property/buyer data to each form's AcroForm field names. Field names
 // were assigned when the fillable PDFs were generated; verified by rendering.
-function formValuesForState(
+export function formValuesForState(
   state: string,
   property: Record<string, unknown>,
   buyerName: string,

@@ -65,16 +65,27 @@ export default function LoopDetailPage() {
         </span>
       </div>
 
-      <h1 className="text-3xl font-bold text-gray-900">{loop.address}</h1>
-      <div className="mt-1 flex items-center gap-4 text-sm">
-        <span className="font-semibold tracking-wide" style={{ color: DL_BLUE }}>
-          {(TYPE_LABELS[loop.transactionType] ?? loop.transactionType).toUpperCase()}
-        </span>
-        <span className="text-gray-400">
-          {loop.city}
-          {loop.state ? `, ${loop.state}` : ''}
-          {loop.mlsNumber ? ` · MLS# ${loop.mlsNumber}` : ''}
-        </span>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">{loop.address}</h1>
+          <div className="mt-1 flex items-center gap-4 text-sm">
+            <span className="font-semibold tracking-wide" style={{ color: DL_BLUE }}>
+              {(TYPE_LABELS[loop.transactionType] ?? loop.transactionType).toUpperCase()}
+            </span>
+            <span className="text-gray-400">
+              {loop.city}
+              {loop.state ? `, ${loop.state}` : ''}
+              {loop.mlsNumber ? ` · MLS# ${loop.mlsNumber}` : ''}
+            </span>
+          </div>
+        </div>
+        <Link
+          to={`/loops/${loop.id}/fill`}
+          className="shrink-0 rounded-lg px-5 py-2.5 text-sm font-semibold text-white"
+          style={{ backgroundColor: '#262626' }}
+        >
+          Fill out contract →
+        </Link>
       </div>
 
       <div className="mt-8 rounded-xl border border-gray-200 bg-white p-6">

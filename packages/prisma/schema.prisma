@@ -1162,6 +1162,9 @@ model Transaction {
   status          String   @default("ACTIVE") // ACTIVE | ARCHIVED
   photoUrl        String?
 
+  // Filled contract field values (AcroForm field name -> value) from the Fill view.
+  fieldValues Json?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
