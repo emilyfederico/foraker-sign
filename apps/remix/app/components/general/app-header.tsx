@@ -11,8 +11,6 @@ import { trpc } from '@documenso/trpc/react';
 import { cn } from '@documenso/ui/lib/utils';
 import { Button } from '@documenso/ui/primitives/button';
 
-import { BrandingLogo } from '~/components/general/branding-logo';
-
 import { AppCommandMenu } from './app-command-menu';
 import { AppNavDesktop } from './app-nav-desktop';
 import { AppNavMobile } from './app-nav-mobile';
@@ -64,9 +62,30 @@ export const Header = ({ className, ...props }: HeaderProps) => {
       <div className="mx-auto flex w-full max-w-screen-xl items-center justify-between gap-x-4 px-4 md:justify-normal md:px-8">
         <Link
           to={getRootHref(params)}
-          className="hidden rounded-md ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 md:inline"
+          className="hidden items-center gap-2.5 rounded-md ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 md:flex"
         >
-          <BrandingLogo className="h-6 w-auto" />
+          <svg width="28" height="28" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+            <path
+              d="M8 22 L24 9 L40 22"
+              stroke="#fff"
+              strokeWidth="2.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path d="M11 20 V39 H37 V20" stroke="#fff" strokeWidth="2.4" strokeLinejoin="round" />
+            <path
+              d="M20 39 V28 H28 V32"
+              stroke="#fff"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          <span className="h-7 w-px bg-white/30" />
+          <span className="leading-none">
+            <span className="block font-serif text-lg tracking-[0.16em] text-white">FORAKER</span>
+            <span className="mt-0.5 block text-[8px] tracking-[0.42em] text-white/65">SIGN</span>
+          </span>
         </Link>
 
         <AppNavDesktop setIsCommandMenuOpen={setIsCommandMenuOpen} />
