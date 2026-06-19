@@ -18,3 +18,4 @@ packages/lib/translations/**/*.js
 
 # Docs MDX - Prettier strips indentation from code blocks inside components
 apps/docs/content/**/*.mdx
+apps/remix/app/utils/contract-forms.server.ts
