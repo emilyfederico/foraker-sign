@@ -120,21 +120,23 @@ function PropertyModal({ property, onClose }: { property: Property; onClose: () 
   const [generating, setGenerating] = useState(false);
   const [buyerName, setBuyerName] = useState('');
   const [buyerEmail, setBuyerEmail] = useState('');
+  const [result, setResult] = useState<{ url?: string; error?: string } | null>(null);
 
   const stateKey = property.state ?? 'DE';
 
   async function handleGenerateContract() {
     if (!buyerName.trim() || !buyerEmail.trim()) {
-      alert('Please enter buyer name and email before generating.');
+      setResult({ error: 'Enter buyer name and email first.' });
       return;
     }
     const templateId = TEMPLATE_IDS[stateKey];
     const recipientId = TEMPLATE_RECIPIENT_IDS[stateKey];
     if (!templateId) {
-      alert('No contract template found for state: ' + property.state);
+      setResult({ error: 'No contract template found for state: ' + property.state });
       return;
     }
     setGenerating(true);
+    setResult(null);
     try {
       const res = await fetch('/api/generate-contract', {
         method: 'POST',
@@ -145,15 +147,14 @@ function PropertyModal({ property, onClose }: { property: Property; onClose: () 
           recipients: [{ id: recipientId, name: buyerName.trim(), email: buyerEmail.trim() }],
         }),
       });
-      const data = await res.json();
-      if (data.url) {
-        window.open(data.url, '_blank');
-        onClose();
-      } else {
-        alert(data.error ?? 'Failed to generate contract');
-      }
-    } catch {
-      alert('Failed to generate contract');
+      const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+      // Show the result inline rather than auto-opening, so a broken target
+      // page can't replace this view, and any error is visible.
+      setResult(
+        data.url ? { url: data.url } : { error: data.error ?? `Request failed (${res.status})` },
+      );
+    } catch (err) {
+      setResult({ error: err instanceof Error ? err.message : 'Network error' });
     } finally {
       setGenerating(false);
     }
@@ -236,6 +237,25 @@ function PropertyModal({ property, onClose }: { property: Property; onClose: () 
           >
             {generating ? 'Generating...' : 'Generate Contract'}
           </button>
+
+          {result?.url && (
+            <div className="mt-3 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
+              Contract created.{' '}
+              <a
+                href={result.url}
+                target="_blank"
+                rel="noreferrer"
+                className="font-semibold underline"
+              >
+                Open it →
+              </a>
+            </div>
+          )}
+          {result?.error && (
+            <div className="mt-3 break-words rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+              {result.error}
+            </div>
+          )}
         </div>
       </div>
     </div>

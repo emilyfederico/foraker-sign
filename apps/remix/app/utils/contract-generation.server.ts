@@ -271,26 +271,34 @@ async function generateViaVisibleTemplate({
 export async function generateContractDocument(
   args: GenerateArgs,
 ): Promise<{ url: string } | { error: string }> {
+  const errs: string[] = [];
+  const msg = (err: unknown) => (err instanceof Error ? err.message : String(err));
+
   try {
     const viaTemplate = await generateViaVisibleTemplate(args);
     if (viaTemplate) {
       return viaTemplate;
     }
   } catch (err) {
-    console.error('Visible-template generation failed; trying embedded form:', err);
+    console.error('Visible-template generation failed:', err);
+    errs.push(`template: ${msg(err)}`);
   }
 
   try {
     return await generateRichContract(args);
   } catch (err) {
-    console.error('Embedded-form generation failed; trying simple template:', err);
-    try {
-      return await generateFromSimpleTemplate(args);
-    } catch (fallbackErr) {
-      console.error('All contract generation paths failed:', fallbackErr);
-      return { error: 'Failed to generate contract' };
-    }
+    console.error('Embedded-form generation failed:', err);
+    errs.push(`embedded: ${msg(err)}`);
   }
+
+  try {
+    return await generateFromSimpleTemplate(args);
+  } catch (err) {
+    console.error('Simple-template generation failed:', err);
+    errs.push(`simple: ${msg(err)}`);
+  }
+
+  return { error: errs.join(' | ') || 'Failed to generate contract' };
 }
 
 /**
