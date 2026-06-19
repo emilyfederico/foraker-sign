@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { Link, redirect, useFetcher, useLoaderData, useSubmit } from 'react-router';
+import { Link, useFetcher, useLoaderData, useSubmit } from 'react-router';
 
 import { prisma } from '@documenso/prisma';
 
@@ -48,19 +48,27 @@ export async function action({ request }: { request: Request }) {
   const priceRaw = String(form.get('price') || '');
   const bedsRaw = String(form.get('beds') || '');
 
-  const loop = await prisma.transaction.create({
-    data: {
-      address,
-      city: String(form.get('city') || '') || null,
-      state: String(form.get('state') || '') || null,
-      mlsNumber: String(form.get('mlsNumber') || '') || null,
-      price: priceRaw ? Number(priceRaw) : null,
-      beds: bedsRaw ? Number(bedsRaw) : null,
-      transactionType: String(form.get('transactionType') || 'PURCHASE'),
-    },
-  });
-
-  return redirect(`/loops/${loop.id}`);
+  try {
+    const loop = await prisma.transaction.create({
+      data: {
+        address,
+        city: String(form.get('city') || '') || null,
+        state: String(form.get('state') || '') || null,
+        mlsNumber: String(form.get('mlsNumber') || '') || null,
+        price: priceRaw ? Number(priceRaw) : null,
+        beds: bedsRaw ? Number(bedsRaw) : null,
+        transactionType: String(form.get('transactionType') || 'PURCHASE'),
+      },
+    });
+    // Return the id (don't auto-redirect) so the modal can show the result and
+    // any navigation error to the loop page is isolated from creation.
+    return Response.json({ loopId: loop.id });
+  } catch (err) {
+    return Response.json(
+      { error: err instanceof Error ? err.message : 'Failed to create loop' },
+      { status: 500 },
+    );
+  }
 }
 
 function formatPrice(price: number | null): string {
@@ -94,8 +102,8 @@ type PropertyResult = {
 };
 
 function AddLoopModal({ onClose }: { onClose: () => void }) {
-  const submit = useSubmit();
   const fetcher = useFetcher<{ results: PropertyResult[] }>();
+  const createFetcher = useFetcher<{ loopId?: string; error?: string }>();
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<PropertyResult | null>(null);
   const [type, setType] = useState('PURCHASE');
@@ -126,11 +134,14 @@ function AddLoopModal({ onClose }: { onClose: () => void }) {
     } else {
       data.set('address', query.trim());
     }
-    void submit(data, { method: 'post' });
+    void createFetcher.submit(data, { method: 'post' });
   }
 
   const results = fetcher.data?.results ?? [];
   const canContinue = Boolean(selected) || query.trim().length > 3;
+  const creating = createFetcher.state !== 'idle';
+  const createdId = createFetcher.data?.loopId;
+  const createError = createFetcher.data?.error;
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 p-4 pt-20">
@@ -225,17 +236,31 @@ function AddLoopModal({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
+        {createdId && (
+          <div className="mt-4 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
+            Loop created.{' '}
+            <Link to={`/loops/${createdId}`} className="font-semibold underline">
+              Open it →
+            </Link>
+          </div>
+        )}
+        {createError && (
+          <div className="mt-4 break-words rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+            {createError}
+          </div>
+        )}
+
         <div className="mt-8 flex items-center justify-end gap-4">
           <button onClick={onClose} className="text-sm font-medium" style={{ color: INK }}>
             Cancel
           </button>
           <button
             onClick={createLoop}
-            disabled={!canContinue}
+            disabled={!canContinue || creating}
             className="rounded-full px-6 py-2.5 text-sm font-semibold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
             style={{ backgroundColor: INK }}
           >
-            Continue
+            {creating ? 'Creating…' : 'Continue'}
           </button>
         </div>
       </div>
