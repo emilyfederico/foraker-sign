@@ -1,12 +1,13 @@
 import Anthropic from '@anthropic-ai/sdk';
 
+import { getSession } from '@documenso/auth/server/lib/utils/get-session';
 import { prisma } from '@documenso/prisma';
 
 import { generateContractDocument } from './generate-contract';
 
-// Template + recipient IDs mirror the form-driven flow in properties.tsx.
-const TEMPLATE_IDS: Record<string, string> = { MD: '1', DE: '2', PA: '3' };
-const TEMPLATE_RECIPIENT_IDS: Record<string, number> = { MD: 4, DE: 5, PA: 7 };
+// Valid contract states (the contract is generated into the logged-in agent's
+// own workspace by generateContractDocument).
+const VALID_STATES = new Set(['MD', 'DE', 'PA']);
 
 // Parsed shape Claude returns from the realtor's free-text request.
 // Empty string is the "not stated" sentinel — simpler and more robust under
@@ -127,6 +128,15 @@ export async function action({ request }: { request: Request }) {
     return Response.json({ error: 'Method not allowed' }, { status: 405 });
   }
 
+  // Must be a signed-in agent — the contract is generated into their workspace.
+  let userId: number;
+  try {
+    const { user } = await getSession(request);
+    userId = user.id;
+  } catch {
+    return Response.json({ reply: 'Please sign in to use the assistant.' }, { status: 200 });
+  }
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return Response.json(
@@ -177,7 +187,7 @@ export async function action({ request }: { request: Request }) {
   }
 
   // 2. Validate we have enough to act on.
-  if (!parsed.state || !TEMPLATE_IDS[parsed.state]) {
+  if (!parsed.state || !VALID_STATES.has(parsed.state)) {
     return Response.json(
       { reply: 'Which state is this contract for — PA, MD, or DE?' },
       { status: 200 },
@@ -214,17 +224,14 @@ export async function action({ request }: { request: Request }) {
     );
   }
 
-  // 5. Generate the contract via the shared Documenso flow.
+  // 5. Generate the contract in the logged-in agent's own workspace.
   const result = await generateContractDocument({
-    templateId: TEMPLATE_IDS[parsed.state],
+    userId,
+    state: parsed.state,
     property: property as unknown as Record<string, unknown>,
-    recipients: [
-      {
-        id: TEMPLATE_RECIPIENT_IDS[parsed.state],
-        name: parsed.buyerName,
-        email: parsed.buyerEmail,
-      },
-    ],
+    buyerName: parsed.buyerName,
+    buyerEmail: parsed.buyerEmail,
+    request,
   });
 
   if ('error' in result) {

@@ -1,35 +1,15 @@
-const DOCUMENSO_API_TOKEN =
-  process.env.DOCUMENSO_API_TOKEN ?? 'foraker-sign-api-76852597039f0c559b3e18d38dfd4ec6';
-const WEBAPP_URL = process.env.NEXT_PUBLIC_WEBAPP_URL ?? 'https://sign.foraker.ai';
-const TEMPLATE_TEAM_URL = 'personal_awsdwlueddrcixnf';
+import { EnvelopeType } from '@prisma/client';
 
-// Template field IDs — these are the Documenso Field.id values added to each template.
-// When generating a document, these IDs are used in prefillFields to auto-populate property data.
-const TEMPLATE_FIELDS: Record<string, { label: string; id: number; type: 'text' | 'number' }[]> = {
-  '1': [
-    // MD
-    { label: 'address', id: 3, type: 'text' },
-    { label: 'city', id: 4, type: 'text' },
-    { label: 'county', id: 5, type: 'text' },
-    { label: 'price', id: 6, type: 'text' },
-  ],
-  '2': [
-    // DE
-    { label: 'seller', id: 7, type: 'text' },
-    { label: 'buyer', id: 8, type: 'text' },
-    { label: 'address', id: 9, type: 'text' },
-    { label: 'price', id: 10, type: 'text' },
-  ],
-  '3': [
-    // PA
-    { label: 'buyer', id: 11, type: 'text' },
-    { label: 'seller', id: 12, type: 'text' },
-    { label: 'address', id: 13, type: 'text' },
-    { label: 'city', id: 14, type: 'text' },
-    { label: 'county', id: 15, type: 'text' },
-    { label: 'price', id: 16, type: 'text' },
-  ],
-};
+import { getSession } from '@documenso/auth/server/lib/utils/get-session';
+import { createDocumentFromTemplate } from '@documenso/lib/server-only/template/create-document-from-template';
+import { extractRequestMetadata } from '@documenso/lib/universal/extract-request-metadata';
+import { mapSecondaryIdToDocumentId } from '@documenso/lib/utils/envelope';
+import { prisma } from '@documenso/prisma';
+
+const WEBAPP_URL = process.env.NEXT_PUBLIC_WEBAPP_URL ?? 'https://sign.foraker.ai';
+
+// Legacy templateId sent by the client (properties page) -> state.
+const TEMPLATE_ID_TO_STATE: Record<string, string> = { '1': 'MD', '2': 'DE', '3': 'PA' };
 
 function formatPrice(price: unknown): string {
   if (!price) return '';
@@ -40,14 +20,61 @@ function formatPrice(price: unknown): string {
   }).format(Number(price));
 }
 
-function buildPrefillFields(
-  templateId: string,
-  property: Record<string, unknown>,
-  buyerName: string,
-) {
-  const fields = TEMPLATE_FIELDS[templateId];
-  if (!fields) return [];
+/**
+ * Generate a contract in the *logged-in agent's own* workspace.
+ *
+ * Every agent gets their own copy of the MD/DE/PA templates on signup, each with
+ * unique field/recipient ids. So we can't use hardcoded ids — we look up the
+ * agent's own template by (userId + state title) and match its fields by
+ * `fieldMeta.label`. The document is created in the agent's team and the link
+ * points there, so the agent can always open it (no cross-team 404).
+ */
+export async function generateContractDocument({
+  userId,
+  state,
+  property,
+  buyerName,
+  buyerEmail,
+  request,
+}: {
+  userId: number;
+  state: string;
+  property: Record<string, unknown>;
+  buyerName: string;
+  buyerEmail: string;
+  request: Request;
+}): Promise<{ url: string } | { error: string }> {
+  // Find the agent's own copy of the template for this state.
+  const template = await prisma.envelope.findFirst({
+    where: {
+      userId,
+      type: EnvelopeType.TEMPLATE,
+      title: { contains: `${state} Residential Contract` },
+    },
+    select: {
+      id: true,
+      secondaryId: true,
+      teamId: true,
+      team: { select: { url: true } },
+      recipients: {
+        select: {
+          id: true,
+          fields: { select: { id: true, fieldMeta: true } },
+        },
+      },
+    },
+  });
 
+  if (!template) {
+    return { error: `No ${state} contract template found in your workspace.` };
+  }
+
+  const recipient = template.recipients[0];
+  if (!recipient) {
+    return { error: 'The contract template has no signer configured.' };
+  }
+
+  // Match each template field to a property value by its label.
   const valueMap: Record<string, string> = {
     address: String(property.address ?? ''),
     city: String(property.city ?? ''),
@@ -57,53 +84,32 @@ function buildPrefillFields(
     seller: String(property.listOfficeName ?? ''),
   };
 
-  return fields
-    .map((f) => ({
-      id: f.id,
-      type: f.type,
-      value: valueMap[f.label] ?? '',
-    }))
-    .filter((f) => f.value !== '');
-}
-
-// Shared contract-generation logic, reused by both the form-driven action below
-// and the natural-language chat endpoint (/api/chat-contract).
-export async function generateContractDocument({
-  templateId,
-  property,
-  recipients = [],
-}: {
-  templateId: string;
-  property: Record<string, unknown>;
-  recipients?: { id: number; name: string; email: string }[];
-}): Promise<{ url: string } | { error: string }> {
-  const title = `${String(property.address)} - Contract`;
-  const buyerName = recipients[0]?.name ?? '';
-  const prefillFields = buildPrefillFields(templateId, property, buyerName);
+  const prefillFields = recipient.fields
+    .map((f) => {
+      const label = (f.fieldMeta as { label?: string } | null)?.label;
+      const value = label ? valueMap[label] : undefined;
+      if (!value) return null;
+      return { id: f.id, type: 'text' as const, value };
+    })
+    .filter((f): f is { id: number; type: 'text'; value: string } => f !== null);
 
   try {
-    const res = await fetch(`${WEBAPP_URL}/api/v1/templates/${templateId}/generate-document`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${DOCUMENSO_API_TOKEN}`,
+    const envelope = await createDocumentFromTemplate({
+      id: { type: 'envelopeId', id: template.id },
+      userId,
+      teamId: template.teamId,
+      recipients: [{ id: recipient.id, name: buyerName, email: buyerEmail }],
+      prefillFields,
+      override: { title: `${String(property.address)} - Contract` },
+      requestMetadata: {
+        source: 'app',
+        auth: 'session',
+        requestMetadata: extractRequestMetadata(request),
       },
-      body: JSON.stringify({
-        title,
-        recipients,
-        prefillFields,
-      }),
     });
 
-    const data = (await res.json()) as { documentId?: string; id?: string; message?: string };
-
-    if (!res.ok) {
-      console.error('Documenso error:', data);
-      return { error: data.message ?? 'Failed to generate document' };
-    }
-
-    const documentId = data.documentId ?? data.id;
-    const url = `${WEBAPP_URL}/t/${TEMPLATE_TEAM_URL}/documents/${documentId}`;
+    const documentId = mapSecondaryIdToDocumentId(envelope.secondaryId);
+    const url = `${WEBAPP_URL}/t/${template.team.url}/documents/${documentId}`;
 
     return { url };
   } catch (err) {
@@ -117,10 +123,22 @@ export async function action({ request }: { request: Request }) {
     return Response.json({ error: 'Method not allowed' }, { status: 405 });
   }
 
+  let userId: number;
+  try {
+    const { user } = await getSession(request);
+    userId = user.id;
+  } catch {
+    return Response.json(
+      { error: 'You must be signed in to generate a contract.' },
+      { status: 401 },
+    );
+  }
+
   let body: {
-    templateId: string;
+    templateId?: string;
+    state?: string;
     property: Record<string, unknown>;
-    recipients?: { id: number; name: string; email: string }[];
+    recipients?: { id?: number; name: string; email: string }[];
   };
 
   try {
@@ -131,11 +149,28 @@ export async function action({ request }: { request: Request }) {
 
   const { templateId, property, recipients = [] } = body;
 
-  if (!templateId) {
-    return Response.json({ error: 'Missing templateId' }, { status: 400 });
+  const state =
+    body.state ??
+    (templateId ? TEMPLATE_ID_TO_STATE[templateId] : undefined) ??
+    String(property?.state ?? '');
+
+  if (!state) {
+    return Response.json({ error: 'Missing contract state' }, { status: 400 });
   }
 
-  const result = await generateContractDocument({ templateId, property, recipients });
+  const buyer = recipients[0];
+  if (!buyer?.name?.trim() || !buyer?.email?.trim()) {
+    return Response.json({ error: 'Buyer name and email are required' }, { status: 400 });
+  }
+
+  const result = await generateContractDocument({
+    userId,
+    state,
+    property,
+    buyerName: buyer.name.trim(),
+    buyerEmail: buyer.email.trim(),
+    request,
+  });
 
   if ('error' in result) {
     return Response.json({ error: result.error }, { status: 500 });
