@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { Link, useFetcher, useLoaderData, useSubmit } from 'react-router';
+import { Link, useFetcher, useLoaderData, useNavigate, useSubmit } from 'react-router';
 
 import { prisma } from '@documenso/prisma';
 
@@ -104,6 +104,8 @@ type PropertyResult = {
 function AddLoopModal({ onClose }: { onClose: () => void }) {
   const fetcher = useFetcher<{ results: PropertyResult[] }>();
   const createFetcher = useFetcher<{ loopId?: string; error?: string }>();
+  const navigate = useNavigate();
+  const [step, setStep] = useState(1);
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<PropertyResult | null>(null);
   const [type, setType] = useState('PURCHASE');
@@ -121,7 +123,23 @@ function AddLoopModal({ onClose }: { onClose: () => void }) {
     };
   }, [query, selected, fetcher]);
 
+  const results = fetcher.data?.results ?? [];
+  const canContinue = Boolean(selected) || query.trim().length > 3;
+  const creating = createFetcher.state !== 'idle';
+  const createdId = createFetcher.data?.loopId;
+  const createError = createFetcher.data?.error;
+
+  // Once created, open the loop. This is also what prevents a second loop: the
+  // modal navigates away, so the create button can't be clicked again.
+  useEffect(() => {
+    if (createdId) {
+      void navigate(`/loops/${createdId}`);
+    }
+  }, [createdId, navigate]);
+
   function createLoop() {
+    // Guard against double-submit (the original duplicate-loop bug).
+    if (creating || createdId) return;
     const data = new FormData();
     data.set('transactionType', type);
     if (selected) {
@@ -137,11 +155,9 @@ function AddLoopModal({ onClose }: { onClose: () => void }) {
     void createFetcher.submit(data, { method: 'post' });
   }
 
-  const results = fetcher.data?.results ?? [];
-  const canContinue = Boolean(selected) || query.trim().length > 3;
-  const creating = createFetcher.state !== 'idle';
-  const createdId = createFetcher.data?.loopId;
-  const createError = createFetcher.data?.error;
+  const displayAddress = selected
+    ? `${selected.address}, ${selected.city}${selected.state ? `, ${selected.state}` : ''}`
+    : query.trim();
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 p-4 pt-20">
@@ -155,68 +171,86 @@ function AddLoopModal({ onClose }: { onClose: () => void }) {
 
         <h2 className="text-center text-2xl font-bold text-gray-900">Add a new loop</h2>
 
-        {/* Stepper (visual, matches dotloop) */}
+        {/* Stepper — driven by the current step */}
         <div className="mx-auto mt-6 flex max-w-lg items-center justify-between text-sm">
-          {['Loop Name', 'Type', 'Finish'].map((label, i) => (
-            <div key={label} className="flex flex-1 items-center">
-              <span
-                className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold text-white"
-                style={{ backgroundColor: i === 0 ? INK : '#cbd5e1' }}
-              >
-                {i + 1}
-              </span>
-              <span className="ml-2 font-medium" style={{ color: i === 0 ? '#111827' : '#94a3b8' }}>
-                {label}
-              </span>
-              {i < 2 && <span className="mx-3 h-px flex-1 bg-gray-200" />}
-            </div>
-          ))}
+          {['Loop Name', 'Type', 'Finish'].map((label, i) => {
+            const n = i + 1;
+            const active = n <= step;
+            return (
+              <div key={label} className="flex flex-1 items-center">
+                <span
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold text-white"
+                  style={{ backgroundColor: active ? INK : '#cbd5e1' }}
+                >
+                  {n}
+                </span>
+                <span
+                  className="ml-2 font-medium"
+                  style={{ color: active ? '#111827' : '#94a3b8' }}
+                >
+                  {label}
+                </span>
+                {i < 2 && <span className="mx-3 h-px flex-1 bg-gray-200" />}
+              </div>
+            );
+          })}
         </div>
 
-        <div className="mt-8">
-          <label className="mb-1 block text-xs font-medium" style={{ color: INK }}>
-            Property Address or MLS#
-          </label>
-          <input
-            autoFocus
-            value={selected ? `${selected.address}, ${selected.city}` : query}
-            onChange={(e) => {
-              setSelected(null);
-              setQuery(e.target.value);
-            }}
-            placeholder="Start typing an address or MLS number…"
-            className="w-full rounded-lg border-2 px-4 py-3 text-sm focus:outline-none"
-            style={{ borderColor: INK }}
-          />
+        {/* STEP 1 — Loop Name (address / MLS) */}
+        {step === 1 && (
+          <div className="mt-8">
+            <label className="mb-1 block text-xs font-medium" style={{ color: INK }}>
+              Property Address or MLS#
+            </label>
+            <input
+              autoFocus
+              value={selected ? `${selected.address}, ${selected.city}` : query}
+              onChange={(e) => {
+                setSelected(null);
+                setQuery(e.target.value);
+              }}
+              placeholder="Start typing an address or MLS number…"
+              className="w-full rounded-lg border-2 px-4 py-3 text-sm focus:outline-none"
+              style={{ borderColor: INK }}
+            />
 
-          {/* Autocomplete results */}
-          {!selected && results.length > 0 && (
-            <div className="mt-1 max-h-64 overflow-y-auto rounded-lg border border-gray-200">
-              {results.map((r) => (
-                <button
-                  key={r.mlsNumber}
-                  onClick={() => setSelected(r)}
-                  className="flex w-full items-center justify-between border-b border-gray-100 px-4 py-3 text-left last:border-0 hover:bg-gray-50"
-                >
-                  <span>
-                    <span className="block text-sm font-medium text-gray-900">
-                      {r.address}, {r.city}
-                      {r.state ? `, ${r.state}` : ''}
+            {!selected && results.length > 0 && (
+              <div className="mt-1 max-h-64 overflow-y-auto rounded-lg border border-gray-200">
+                {results.map((r) => (
+                  <button
+                    key={r.mlsNumber}
+                    onClick={() => setSelected(r)}
+                    className="flex w-full items-center justify-between border-b border-gray-100 px-4 py-3 text-left last:border-0 hover:bg-gray-50"
+                  >
+                    <span>
+                      <span className="block text-sm font-medium text-gray-900">
+                        {r.address}, {r.city}
+                        {r.state ? `, ${r.state}` : ''}
+                      </span>
+                      <span className="block text-xs text-gray-400">
+                        {r.listOfficeName ?? 'Foraker'}
+                        {r.price ? ` · ${formatPrice(r.price)}` : ''}
+                      </span>
                     </span>
-                    <span className="block text-xs text-gray-400">
-                      {r.listOfficeName ?? 'Foraker'}
-                      {r.price ? ` · ${formatPrice(r.price)}` : ''}
-                    </span>
-                  </span>
-                  <span className="ml-3 shrink-0 text-xs text-gray-400">MLS# {r.mlsNumber}</span>
-                </button>
-              ))}
-            </div>
-          )}
+                    <span className="ml-3 shrink-0 text-xs text-gray-400">MLS# {r.mlsNumber}</span>
+                  </button>
+                ))}
+              </div>
+            )}
 
-          {/* Transaction type */}
-          <div className="mt-6">
-            <p className="mb-2 text-xs font-medium text-gray-500">Transaction type</p>
+            <p className="mt-2 text-xs text-gray-400">
+              Not in the list? Type the full address — you can still create the loop.
+            </p>
+          </div>
+        )}
+
+        {/* STEP 2 — Type */}
+        {step === 2 && (
+          <div className="mt-8">
+            <p className="mb-1 truncate text-sm text-gray-500">{displayAddress}</p>
+            <p className="mb-3 text-xs font-medium" style={{ color: INK }}>
+              What kind of transaction is this?
+            </p>
             <div className="flex gap-2">
               {Object.entries(TYPE_LABELS).map(([value, label]) => (
                 <button
@@ -234,34 +268,78 @@ function AddLoopModal({ onClose }: { onClose: () => void }) {
               ))}
             </div>
           </div>
-        </div>
-
-        {createdId && (
-          <div className="mt-4 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
-            Loop created.{' '}
-            <Link to={`/loops/${createdId}`} className="font-semibold underline">
-              Open it →
-            </Link>
-          </div>
-        )}
-        {createError && (
-          <div className="mt-4 break-words rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
-            {createError}
-          </div>
         )}
 
-        <div className="mt-8 flex items-center justify-end gap-4">
-          <button onClick={onClose} className="text-sm font-medium" style={{ color: INK }}>
-            Cancel
-          </button>
+        {/* STEP 3 — Finish (review + create) */}
+        {step === 3 && (
+          <div className="mt-8">
+            <p className="mb-3 text-sm font-semibold" style={{ color: INK }}>
+              Review
+            </p>
+            <dl className="space-y-2 rounded-lg border border-gray-200 p-4 text-sm">
+              <div className="flex justify-between gap-4">
+                <dt className="text-gray-400">Address</dt>
+                <dd className="text-right font-medium text-gray-900">{displayAddress}</dd>
+              </div>
+              {selected?.mlsNumber && (
+                <div className="flex justify-between gap-4">
+                  <dt className="text-gray-400">MLS#</dt>
+                  <dd className="text-right font-medium text-gray-900">{selected.mlsNumber}</dd>
+                </div>
+              )}
+              <div className="flex justify-between gap-4">
+                <dt className="text-gray-400">Type</dt>
+                <dd className="text-right font-medium text-gray-900">
+                  {TYPE_LABELS[type] ?? type}
+                </dd>
+              </div>
+              {selected?.price ? (
+                <div className="flex justify-between gap-4">
+                  <dt className="text-gray-400">List price</dt>
+                  <dd className="text-right font-medium text-gray-900">
+                    {formatPrice(selected.price)}
+                  </dd>
+                </div>
+              ) : null}
+            </dl>
+
+            {createError && (
+              <div className="mt-4 break-words rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+                {createError}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Footer — Back/Cancel + Continue/Create */}
+        <div className="mt-8 flex items-center justify-between gap-4">
           <button
-            onClick={createLoop}
-            disabled={!canContinue || creating}
-            className="rounded-full px-6 py-2.5 text-sm font-semibold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
-            style={{ backgroundColor: INK }}
+            onClick={step === 1 ? onClose : () => setStep(step - 1)}
+            className="text-sm font-medium"
+            style={{ color: INK }}
           >
-            {creating ? 'Creating…' : 'Continue'}
+            {step === 1 ? 'Cancel' : '‹ Back'}
           </button>
+
+          {step < 3 ? (
+            <button
+              onClick={() => setStep(step + 1)}
+              disabled={step === 1 && !canContinue}
+              className="rounded-full px-6 py-2.5 text-sm font-semibold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
+              style={{ backgroundColor: INK }}
+            >
+              Continue
+            </button>
+          ) : (
+            <button
+              onClick={createLoop}
+              disabled={creating || Boolean(createdId)}
+              className="rounded-full px-6 py-2.5 text-sm font-semibold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
+              style={{ backgroundColor: INK }}
+            >
+              {creating ? 'Creating…' : createdId ? 'Opening…' : 'Create Loop'}
+            </button>
+          )}
         </div>
       </div>
     </div>
