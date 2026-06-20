@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { type MouseEvent, useEffect, useRef, useState } from 'react';
 
 import { Link, useFetcher, useLoaderData, useNavigate, useSubmit } from 'react-router';
 
@@ -39,6 +39,18 @@ export async function loader({ request }: { request: Request }) {
 
 export async function action({ request }: { request: Request }) {
   const form = await request.formData();
+
+  // Archive (soft-delete) a loop — removes it from the active list.
+  if (form.get('intent') === 'archive') {
+    const loopId = String(form.get('loopId') || '');
+    if (loopId) {
+      await prisma.transaction.update({
+        where: { id: loopId },
+        data: { status: 'ARCHIVED' },
+      });
+    }
+    return Response.json({ archived: true });
+  }
 
   const address = String(form.get('address') || '').trim();
   if (!address) {
@@ -351,7 +363,25 @@ const TABS = ['Loops', 'Tasks', 'People', 'Templates'];
 export default function LoopsPage() {
   const { loops, search } = useLoaderData() as { loops: Loop[]; search: string };
   const submit = useSubmit();
+  const archiveFetcher = useFetcher();
   const [showAdd, setShowAdd] = useState(false);
+
+  function archiveLoop(e: MouseEvent, id: string, address: string) {
+    // The button sits on top of the card's Link — don't navigate, just archive.
+    e.preventDefault();
+    e.stopPropagation();
+    if (!window.confirm(`Archive "${address}"? It will be removed from your loops.`)) {
+      return;
+    }
+    const data = new FormData();
+    data.set('intent', 'archive');
+    data.set('loopId', id);
+    void archiveFetcher.submit(data, { method: 'post' });
+  }
+
+  // The loop currently being archived (for an immediate optimistic fade-out).
+  const archivingId =
+    archiveFetcher.state !== 'idle' ? String(archiveFetcher.formData?.get('loopId') ?? '') : '';
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6">
@@ -408,47 +438,69 @@ export default function LoopsPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {loops.map((loop) => (
-            <Link
+            <div
               key={loop.id}
-              to={`/loops/${loop.id}`}
-              className="overflow-hidden rounded-xl border border-gray-200 bg-white transition-shadow hover:shadow-md"
+              className={`relative transition-opacity ${
+                archivingId === loop.id ? 'pointer-events-none opacity-40' : ''
+              }`}
             >
-              <div
-                className="flex h-28 items-center justify-center"
-                style={{ background: `linear-gradient(135deg, ${INK}, #0077b6)` }}
+              <Link
+                to={`/loops/${loop.id}`}
+                className="block overflow-hidden rounded-xl border border-gray-200 bg-white transition-shadow hover:shadow-md"
               >
-                <svg
-                  className="h-10 w-10 text-white/80"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+                <div
+                  className="flex h-28 items-center justify-center"
+                  style={{ background: `linear-gradient(135deg, ${INK}, #0077b6)` }}
                 >
+                  <svg
+                    className="h-10 w-10 text-white/80"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M3 12l9-9 9 9M5 10v10h14V10"
+                    />
+                  </svg>
+                </div>
+                <div className="p-4">
+                  <p className="truncate font-semibold text-gray-900">{loop.address}</p>
+                  <p className="truncate text-sm text-gray-500">
+                    {loop.city}
+                    {loop.state ? `, ${loop.state}` : ''}
+                  </p>
+                  <div className="mt-3 flex items-center justify-between">
+                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                      {TYPE_LABELS[loop.transactionType] ?? loop.transactionType}
+                    </span>
+                    {loop.price ? (
+                      <span className="text-sm font-bold" style={{ color: INK }}>
+                        {formatPrice(loop.price)}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+              </Link>
+
+              <button
+                onClick={(e) => archiveLoop(e, loop.id, loop.address)}
+                title="Archive loop"
+                aria-label="Archive loop"
+                className="absolute right-2 top-2 z-10 rounded-full bg-white/90 p-1.5 text-gray-500 shadow-sm transition-colors hover:bg-white hover:text-red-600"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M3 12l9-9 9 9M5 10v10h14V10"
+                    strokeWidth={1.8}
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                   />
                 </svg>
-              </div>
-              <div className="p-4">
-                <p className="truncate font-semibold text-gray-900">{loop.address}</p>
-                <p className="truncate text-sm text-gray-500">
-                  {loop.city}
-                  {loop.state ? `, ${loop.state}` : ''}
-                </p>
-                <div className="mt-3 flex items-center justify-between">
-                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
-                    {TYPE_LABELS[loop.transactionType] ?? loop.transactionType}
-                  </span>
-                  {loop.price ? (
-                    <span className="text-sm font-bold" style={{ color: INK }}>
-                      {formatPrice(loop.price)}
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-            </Link>
+              </button>
+            </div>
           ))}
         </div>
       )}
