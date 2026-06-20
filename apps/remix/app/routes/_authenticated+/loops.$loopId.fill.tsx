@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker?url';
-import { Link, useFetcher, useLoaderData } from 'react-router';
+import { Link, isRouteErrorResponse, useFetcher, useLoaderData, useRouteError } from 'react-router';
 
 import { prisma } from '@documenso/prisma';
 
@@ -13,6 +13,26 @@ import { formValuesForState } from '~/utils/contract-generation.server';
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 const DARK = '#262626';
+
+export function ErrorBoundary() {
+  const error = useRouteError();
+  let detail = 'Unknown error';
+  if (isRouteErrorResponse(error)) {
+    detail = `${error.status} ${error.statusText}${typeof error.data === 'string' ? ` — ${error.data}` : ''}`;
+  } else if (error instanceof Error) {
+    detail = `${error.message}\n\n${error.stack ?? ''}`;
+  } else {
+    detail = String(error);
+  }
+  return (
+    <div className="mx-auto max-w-3xl px-4 py-10">
+      <h1 className="text-xl font-bold text-red-700">Fill page error</h1>
+      <pre className="mt-3 max-h-[60vh] overflow-auto whitespace-pre-wrap break-words rounded-lg bg-red-50 p-4 text-xs text-red-800">
+        {detail}
+      </pre>
+    </div>
+  );
+}
 
 export async function loader({ params }: { params: { loopId: string } }) {
   const loop = await prisma.transaction.findUnique({ where: { id: params.loopId } });
