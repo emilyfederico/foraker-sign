@@ -117,7 +117,7 @@ function AddLoopModal({ onClose }: { onClose: () => void }) {
     if (query.trim().length < 2) return;
     debounceRef.current = setTimeout(() => {
       void fetcher.load(`/api/properties-search?q=${encodeURIComponent(query.trim())}`);
-    }, 200);
+    }, 80);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
