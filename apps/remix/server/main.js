@@ -32,4 +32,44 @@ const handler = handle(build, server);
 
 const port = parseInt(process.env.PORT || '3000', 10);
 
-serve({ fetch: handler.fetch, port });
+// Behind the Cloudflare -> Railway proxy chain, the `X-Forwarded-Host` header
+// arrives as the internal *.railway.app host while the browser's `Origin` is the
+// public host (e.g. sign.foraker.ai). React Router v7's single-fetch CSRF check
+// aborts any action (POST) request when those two don't match, which surfaced as
+// a 500 ("x-forwarded-host header does not match `origin` header") on every form
+// submission. Normalize X-Forwarded-Host to the trusted public host: legitimate
+// same-origin actions pass, while genuine cross-origin posts (whose Origin will
+// not equal the trusted host) are still rejected.
+let trustedHost = 'sign.foraker.ai';
+try {
+  if (process.env.NEXT_PUBLIC_WEBAPP_URL) {
+    trustedHost = new URL(process.env.NEXT_PUBLIC_WEBAPP_URL).host;
+  }
+} catch {
+  // keep the default
+}
+
+const baseFetch = handler.fetch;
+
+const wrappedFetch = async (request, ...rest) => {
+  const origin = request.headers.get('origin');
+
+  if (origin) {
+    let originHost = null;
+    try {
+      originHost = new URL(origin).host;
+    } catch {
+      originHost = null;
+    }
+
+    if (originHost === trustedHost && request.headers.get('x-forwarded-host') !== originHost) {
+      const headers = new Headers(request.headers);
+      headers.set('x-forwarded-host', originHost);
+      request = new Request(request, { headers });
+    }
+  }
+
+  return baseFetch(request, ...rest);
+};
+
+serve({ fetch: wrappedFetch, port });
