@@ -45,7 +45,9 @@ export function formValuesForState(
   // MLS county often looks like "New Castle, DE" — drop the trailing state code.
   const county = String(property.county ?? '').replace(/,\s*[A-Z]{2}\s*$/, '');
   const price = formatPrice(property.price);
-  const seller = String(property.listOfficeName ?? '');
+  // The Seller is the property OWNER, whose name MLS data does not include — and
+  // is NEVER the listing brokerage. Leave it blank for the agent to type in.
+  const seller = '';
 
   if (state === 'DE') {
     return {
@@ -182,7 +184,8 @@ async function generateFromSimpleTemplate({
     county: String(property.county ?? ''),
     price: formatPrice(property.price),
     buyer: buyerName,
-    seller: String(property.listOfficeName ?? ''),
+    // Owner's name, entered manually — never the listing brokerage.
+    seller: '',
   };
 
   const prefillFields = recipient.fields
