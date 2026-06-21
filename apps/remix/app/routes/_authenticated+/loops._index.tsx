@@ -13,6 +13,14 @@ const TYPE_LABELS: Record<string, string> = {
   LEASE: 'Lease',
 };
 
+// States we have contracts for — picking one scopes the address search and sets
+// the loop's state (which determines the contract used in the Fill view).
+const SEARCH_STATES: [string, string][] = [
+  ['DE', 'Delaware'],
+  ['PA', 'Pennsylvania'],
+  ['MD', 'Maryland'],
+];
+
 export async function loader({ request }: { request: Request }) {
   const url = new URL(request.url);
   const search = (url.searchParams.get('search') || '').trim();
@@ -120,6 +128,7 @@ function AddLoopModal({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState(1);
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<PropertyResult | null>(null);
+  const [searchState, setSearchState] = useState<string | null>(null);
   const [type, setType] = useState('PURCHASE');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -128,12 +137,15 @@ function AddLoopModal({ onClose }: { onClose: () => void }) {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (query.trim().length < 2) return;
     debounceRef.current = setTimeout(() => {
-      void fetcher.load(`/api/properties-search?q=${encodeURIComponent(query.trim())}`);
+      const stateParam = searchState ? `&state=${searchState}` : '';
+      void fetcher.load(
+        `/api/properties-search?q=${encodeURIComponent(query.trim())}${stateParam}`,
+      );
     }, 80);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query, selected, fetcher]);
+  }, [query, selected, searchState, fetcher]);
 
   const results = fetcher.data?.results ?? [];
   const canContinue = Boolean(selected) || query.trim().length > 3;
@@ -157,12 +169,14 @@ function AddLoopModal({ onClose }: { onClose: () => void }) {
     if (selected) {
       data.set('address', selected.address);
       data.set('city', selected.city);
-      data.set('state', selected.state ?? '');
+      data.set('state', selected.state ?? searchState ?? '');
       data.set('mlsNumber', selected.mlsNumber);
       if (selected.price != null) data.set('price', String(selected.price));
       if (selected.beds != null) data.set('beds', String(selected.beds));
     } else {
       data.set('address', query.trim());
+      // No MLS match — use the chosen state so the right contract loads.
+      if (searchState) data.set('state', searchState);
     }
     void createFetcher.submit(data, { method: 'post' });
   }
@@ -225,6 +239,32 @@ function AddLoopModal({ onClose }: { onClose: () => void }) {
               className="w-full rounded-lg border-2 px-4 py-3 text-sm focus:outline-none"
               style={{ borderColor: INK }}
             />
+
+            {/* State scope — pick a state to search within it (and set the loop's
+                state, which picks the DE/PA/MD contract). */}
+            <div className="mt-3 flex items-center gap-2">
+              <span className="text-xs font-medium text-gray-500">State:</span>
+              {SEARCH_STATES.map(([code, label]) => {
+                const active = searchState === code;
+                return (
+                  <button
+                    key={code}
+                    onClick={() => {
+                      setSelected(null);
+                      setSearchState(active ? null : code);
+                    }}
+                    className="rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors"
+                    style={
+                      active
+                        ? { backgroundColor: INK, color: 'white', borderColor: INK }
+                        : { color: '#374151', borderColor: '#e5e7eb' }
+                    }
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
 
             {!selected && results.length > 0 && (
               <div className="mt-1 max-h-64 overflow-y-auto rounded-lg border border-gray-200">

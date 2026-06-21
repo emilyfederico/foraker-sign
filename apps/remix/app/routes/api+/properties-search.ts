@@ -5,6 +5,8 @@ import { prisma } from '@documenso/prisma';
 export async function loader({ request }: { request: Request }) {
   const url = new URL(request.url);
   const q = (url.searchParams.get('q') || '').trim();
+  // Optional state filter (DE | PA | MD) so the search can be scoped to a state.
+  const state = (url.searchParams.get('state') || '').trim().toUpperCase();
 
   if (q.length < 2) {
     return Response.json({ results: [] });
@@ -12,6 +14,7 @@ export async function loader({ request }: { request: Request }) {
 
   const properties = await prisma.property.findMany({
     where: {
+      ...(state ? { state: { equals: state, mode: 'insensitive' } } : {}),
       OR: [
         { address: { contains: q, mode: 'insensitive' } },
         { mlsNumber: { contains: q, mode: 'insensitive' } },
@@ -19,7 +22,7 @@ export async function loader({ request }: { request: Request }) {
       ],
     },
     orderBy: { contractDate: 'desc' },
-    take: 8,
+    take: 12,
   });
 
   return Response.json({
