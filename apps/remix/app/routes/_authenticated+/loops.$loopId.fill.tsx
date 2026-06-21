@@ -119,8 +119,11 @@ export default function FillContractPage() {
 
   const [values, setValues] = useState<Record<string, string>>(initialValues);
   const [pages, setPages] = useState<{ width: number; height: number }[]>([]);
+  const [renderError, setRenderError] = useState<string | null>(null);
   const canvasRefs = useRef<(HTMLCanvasElement | null)[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
+  const pdfRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null);
+  const targetWidthRef = useRef(820);
 
   const fieldsByPage = useMemo(() => {
     const map: Record<number, FieldBox[]> = {};
@@ -128,50 +131,75 @@ export default function FillContractPage() {
     return map;
   }, [fields]);
 
-  // Render the PDF pages to canvases.
+  // 1) Load the PDF and measure each page (this populates `pages`, which mounts
+  // the canvases).
   useEffect(() => {
     let cancelled = false;
+    setRenderError(null);
     const bytes = base64ToBytes(pdfBase64);
-    // Render a little wider than the on-screen size for a sharper result without
-    // multiplying canvas memory per page (a per-page devicePixelRatio buffer blew
-    // the browser's canvas budget and rendered every page blank).
     const targetWidth = Math.min(containerRef.current?.clientWidth ?? 820, 900);
+    targetWidthRef.current = targetWidth;
 
     void (async () => {
-      const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
-      const sizes: { width: number; height: number }[] = [];
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const base = page.getViewport({ scale: 1 });
-        const scale = targetWidth / base.width;
-        const viewport = page.getViewport({ scale });
-        sizes.push({ width: viewport.width, height: viewport.height });
+      try {
+        const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+        if (cancelled) return;
+        pdfRef.current = pdf;
+        const sizes: { width: number; height: number }[] = [];
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const scale = targetWidth / page.getViewport({ scale: 1 }).width;
+          const viewport = page.getViewport({ scale });
+          sizes.push({ width: viewport.width, height: viewport.height });
+        }
+        if (cancelled) return;
+        setPages(sizes);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('[FillRender] pdf load failed', err);
+        if (!cancelled) setRenderError(err instanceof Error ? err.message : String(err));
       }
-      if (cancelled) return;
-      setPages(sizes);
-
-      // Wait a tick for canvases to mount, then render into them.
-      requestAnimationFrame(() => {
-        void (async () => {
-          for (let i = 1; i <= pdf.numPages; i++) {
-            const canvas = canvasRefs.current[i - 1];
-            if (!canvas) continue;
-            const page = await pdf.getPage(i);
-            const base = page.getViewport({ scale: 1 });
-            const scale = targetWidth / base.width;
-            const viewport = page.getViewport({ scale });
-            canvas.width = viewport.width;
-            canvas.height = viewport.height;
-            await page.render({ canvas, viewport }).promise;
-          }
-        })();
-      });
     })();
 
     return () => {
       cancelled = true;
     };
   }, [pdfBase64]);
+
+  // 2) Render into the canvases AFTER they mount. Keying on `pages` (an effect,
+  // not requestAnimationFrame) guarantees the canvas refs exist — the rAF
+  // approach raced the DOM commit and silently skipped rendering once the pages
+  // gained many overlay children.
+  useEffect(() => {
+    const pdf = pdfRef.current;
+    if (!pdf || pages.length === 0) return;
+    let cancelled = false;
+    const targetWidth = targetWidthRef.current;
+
+    void (async () => {
+      try {
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const canvas = canvasRefs.current[i - 1];
+          if (!canvas) continue;
+          const page = await pdf.getPage(i);
+          const scale = targetWidth / page.getViewport({ scale: 1 }).width;
+          const viewport = page.getViewport({ scale });
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          await page.render({ canvas, viewport }).promise;
+          if (cancelled) return;
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('[FillRender] page render failed', err);
+        if (!cancelled) setRenderError(err instanceof Error ? err.message : String(err));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pages]);
 
   function save() {
     void fetcher.submit({ values: JSON.stringify(values) }, { method: 'post' });
@@ -277,7 +305,14 @@ export default function FillContractPage() {
             )}
           </div>
         ))}
-        {pages.length === 0 && <p className="py-12 text-sm text-gray-400">Loading contract…</p>}
+        {renderError ? (
+          <div className="w-full max-w-2xl break-words rounded-lg border border-red-200 bg-red-50 p-4 text-xs text-red-800">
+            <p className="mb-1 font-semibold">Contract failed to render</p>
+            <pre className="whitespace-pre-wrap">{renderError}</pre>
+          </div>
+        ) : (
+          pages.length === 0 && <p className="py-12 text-sm text-gray-400">Loading contract…</p>
+        )}
       </div>
     </div>
   );
