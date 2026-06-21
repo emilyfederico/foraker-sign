@@ -175,24 +175,38 @@ export default function FillContractPage() {
     if (!pdf || pages.length === 0) return;
     let cancelled = false;
     const targetWidth = targetWidthRef.current;
+    // Render at the screen's pixel density for sharp text. The CSS size stays
+    // logical so overlays still line up. Per page we try the hi-res buffer first
+    // and fall back to 1x if it fails — so the worst case is blurry, never blank.
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
     void (async () => {
-      try {
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const canvas = canvasRefs.current[i - 1];
-          if (!canvas) continue;
+      for (let i = 1; i <= pdf.numPages; i++) {
+        if (cancelled) return;
+        const canvas = canvasRefs.current[i - 1];
+        if (!canvas) continue;
+        try {
           const page = await pdf.getPage(i);
           const scale = targetWidth / page.getViewport({ scale: 1 }).width;
-          const viewport = page.getViewport({ scale });
-          canvas.width = viewport.width;
-          canvas.height = viewport.height;
-          await page.render({ canvas, viewport }).promise;
-          if (cancelled) return;
+          const logical = page.getViewport({ scale });
+          canvas.style.width = `${Math.floor(logical.width)}px`;
+          canvas.style.height = `${Math.floor(logical.height)}px`;
+          for (const factor of dpr > 1 ? [dpr, 1] : [1]) {
+            try {
+              const vp = page.getViewport({ scale: scale * factor });
+              canvas.width = Math.floor(vp.width);
+              canvas.height = Math.floor(vp.height);
+              await page.render({ canvas, viewport: vp }).promise;
+              break;
+            } catch (err) {
+              // eslint-disable-next-line no-console
+              console.error(`[FillRender] page ${i} @${factor}x failed`, err);
+            }
+          }
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error(`[FillRender] page ${i} failed`, err);
         }
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error('[FillRender] page render failed', err);
-        if (!cancelled) setRenderError(err instanceof Error ? err.message : String(err));
       }
     })();
 
