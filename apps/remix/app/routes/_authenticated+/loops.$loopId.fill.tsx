@@ -226,21 +226,64 @@ export default function FillContractPage() {
               }}
               className="absolute left-0 top-0"
             />
-            {(fieldsByPage[pageIndex] ?? []).map((f, i) => (
-              <input
-                key={`${pageIndex}-${i}`}
-                value={values[f.name] ?? ''}
-                onChange={(e) => setValues((v) => ({ ...v, [f.name]: e.target.value }))}
-                className="absolute box-border bg-yellow-100/40 px-0.5 text-[11px] text-gray-900 outline-none focus:bg-yellow-100 focus:ring-1"
-                style={{
-                  left: `${f.xPct * 100}%`,
-                  top: `${f.yPct * 100}%`,
-                  width: `${f.wPct * 100}%`,
-                  height: `${Math.max(f.hPct * 100, 1.6)}%`,
-                  borderBottom: '1px solid rgba(0,0,0,0.25)',
-                }}
-              />
-            ))}
+            {(fieldsByPage[pageIndex] ?? []).map((f, i) =>
+              f.type === 'checkbox' ? (
+                <button
+                  key={`${pageIndex}-${i}`}
+                  type="button"
+                  aria-pressed={Boolean(values[f.name])}
+                  title="Click to check / uncheck"
+                  onClick={() =>
+                    setValues((v) => {
+                      const next = { ...v };
+                      if (next[f.name]) {
+                        delete next[f.name];
+                      } else {
+                        next[f.name] = 'X';
+                      }
+                      return next;
+                    })
+                  }
+                  className="absolute flex items-center justify-center rounded-[1px] hover:bg-blue-300/40"
+                  style={{
+                    left: `${f.xPct * 100}%`,
+                    top: `${f.yPct * 100}%`,
+                    width: `${f.wPct * 100}%`,
+                    height: `${f.hPct * 100}%`,
+                  }}
+                >
+                  {values[f.name] ? (
+                    <svg
+                      viewBox="0 0 10 10"
+                      className="h-full w-full"
+                      style={{ color: DARK }}
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M2 2 L8 8 M8 2 L2 8"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  ) : null}
+                </button>
+              ) : (
+                <input
+                  key={`${pageIndex}-${i}`}
+                  value={values[f.name] ?? ''}
+                  onChange={(e) => setValues((v) => ({ ...v, [f.name]: e.target.value }))}
+                  className="absolute box-border bg-yellow-100/40 px-0.5 text-[11px] text-gray-900 outline-none focus:bg-yellow-100 focus:ring-1"
+                  style={{
+                    left: `${f.xPct * 100}%`,
+                    top: `${f.yPct * 100}%`,
+                    width: `${f.wPct * 100}%`,
+                    height: `${Math.max(f.hPct * 100, 1.6)}%`,
+                    borderBottom: '1px solid rgba(0,0,0,0.25)',
+                  }}
+                />
+              ),
+            )}
           </div>
         ))}
         {pages.length === 0 && <p className="py-12 text-sm text-gray-400">Loading contract…</p>}
