@@ -134,9 +134,10 @@ export default function FillContractPage() {
     const bytes = base64ToBytes(pdfBase64);
     const targetWidth = Math.min(containerRef.current?.clientWidth ?? 820, 900);
     // Render at the screen's pixel density so text is crisp on Retina/HiDPI
-    // displays (a 1x canvas upscaled by the browser looks blurry). Capped at 3x
-    // to keep the canvas buffers reasonable.
-    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    // displays (a 1x canvas upscaled by the browser looks blurry). Capped at 2x:
+    // higher multiplied across every page exceeds the browser's canvas-memory
+    // budget and the pages render blank.
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
     void (async () => {
       const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
@@ -161,17 +162,15 @@ export default function FillContractPage() {
             const base = page.getViewport({ scale: 1 });
             const scale = targetWidth / base.width;
             const viewport = page.getViewport({ scale });
-            // Buffer is dpr times the display size; CSS size stays logical so it
-            // still lines up with the input overlays.
-            canvas.width = Math.floor(viewport.width * dpr);
-            canvas.height = Math.floor(viewport.height * dpr);
-            canvas.style.width = `${viewport.width}px`;
-            canvas.style.height = `${viewport.height}px`;
-            await page.render({
-              canvas,
-              viewport,
-              transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined,
-            }).promise;
+            // Canonical HiDPI pattern: render into a buffer scaled up by dpr, but
+            // display it at the logical size via CSS so it still lines up with the
+            // input overlays. No transform — that path was blanking the canvas.
+            const renderViewport = page.getViewport({ scale: scale * dpr });
+            canvas.width = Math.floor(renderViewport.width);
+            canvas.height = Math.floor(renderViewport.height);
+            canvas.style.width = `${Math.floor(viewport.width)}px`;
+            canvas.style.height = `${Math.floor(viewport.height)}px`;
+            await page.render({ canvas, viewport: renderViewport }).promise;
           }
         })();
       });
