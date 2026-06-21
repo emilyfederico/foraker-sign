@@ -12,21 +12,8 @@ import { APP_I18N_OPTIONS } from '@documenso/lib/constants/i18n';
 import { dynamicActivate, extractLocaleData } from '@documenso/lib/utils/i18n';
 
 import { langCookie } from './storage/lang-cookie.server';
-import { recordError } from './utils/error-log.server';
 
 export const streamTimeout = 5_000;
-
-// React Router calls this for every server-side loader/action/render error.
-// Thrown Responses (redirects, 404s) are normal control flow, not bugs — skip
-// them. Everything else is recorded so /api/last-errors can surface the real
-// stack (the client only ever sees a sanitized "Unexpected Server Error").
-export function handleError(error: unknown, { request }: { request: Request }): void {
-  if (error instanceof Response) {
-    return;
-  }
-  recordError(request.url, error);
-  console.error('[handleError]', request.url, error);
-}
 
 export default async function handleRequest(
   request: Request,
