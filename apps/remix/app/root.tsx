@@ -171,45 +171,11 @@ export default function App() {
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   const errorCode = isRouteErrorResponse(error) ? error.status : 500;
 
+  // The real error is captured server-side via handleError (see entry.server.tsx
+  // -> /api/last-errors); the user just sees the clean generic page.
   if (errorCode !== 404) {
     console.error('[RootErrorBoundary]', error);
   }
 
-  // Surface the real error text on-page (internal tool, no log access) so any
-  // 500 is diagnosable. Temporary — remove once the current bug is fixed.
-  let detail = '';
-  if (isRouteErrorResponse(error)) {
-    detail = `${error.status} ${error.statusText}${
-      typeof error.data === 'string' ? ` — ${error.data}` : ''
-    }`;
-  } else if (error instanceof Error) {
-    detail = `${error.message}\n\n${error.stack ?? ''}`;
-  } else if (error) {
-    detail = String(error);
-  }
-
-  return (
-    <GenericErrorLayout errorCode={errorCode}>
-      {errorCode !== 404 && detail ? (
-        <pre
-          style={{
-            marginTop: '16px',
-            maxWidth: '90vw',
-            maxHeight: '45vh',
-            overflow: 'auto',
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
-            background: 'rgba(127,29,29,0.08)',
-            border: '1px solid rgba(127,29,29,0.25)',
-            borderRadius: '8px',
-            padding: '12px',
-            fontSize: '11px',
-            color: '#b91c1c',
-          }}
-        >
-          {detail}
-        </pre>
-      ) : null}
-    </GenericErrorLayout>
-  );
+  return <GenericErrorLayout errorCode={errorCode} />;
 }

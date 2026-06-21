@@ -110,9 +110,9 @@ export const GenericErrorLayout = ({
                   </Link>
                 </Button>
               ))}
-          </div>
 
-          {children}
+            {children}
+          </div>
         </div>
       </div>
     </div>
