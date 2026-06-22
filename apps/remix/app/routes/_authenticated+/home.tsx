@@ -85,7 +85,7 @@ export default function HomePage() {
             <nav className="nav">
               <Link to="/loops">Loops</Link>
               <Link to="/properties">Properties</Link>
-              <Link to="/inbox">Documents</Link>
+              <Link to="/templates">Templates</Link>
               <Link to="/agent-info">My Info</Link>
               <button type="button" className="signout" onClick={() => void authClient.signOut()}>
                 Sign out

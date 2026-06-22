@@ -450,6 +450,17 @@ export default function LoopsPage() {
       <div className="mb-6 flex items-center gap-8 border-b border-gray-200">
         {TABS.map((tab) => {
           const active = tab === 'Loops';
+          if (tab === 'Templates') {
+            return (
+              <Link
+                key={tab}
+                to="/templates"
+                className="-mb-px border-b-2 border-transparent pb-3 text-sm font-medium text-gray-400 hover:text-gray-600"
+              >
+                {tab}
+              </Link>
+            );
+          }
           return (
             <span
               key={tab}
