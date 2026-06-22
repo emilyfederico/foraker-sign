@@ -46,7 +46,13 @@ export async function loader({ request }: { request: Request }) {
     take: 200,
   });
 
-  return Response.json({ loops, search });
+  const me = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { name: true, email: true },
+  });
+  const creatorName = me?.name || me?.email?.split('@')[0] || 'You';
+
+  return Response.json({ loops, search, creatorName });
 }
 
 export async function action({ request }: { request: Request }) {
@@ -98,6 +104,20 @@ export async function action({ request }: { request: Request }) {
   }
 }
 
+function formatCreated(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString('en-US', {
+      month: '2-digit',
+      day: '2-digit',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  } catch {
+    return '';
+  }
+}
+
 function formatPrice(price: number | null): string {
   if (!price) return '';
   return new Intl.NumberFormat('en-US', {
@@ -116,7 +136,62 @@ type Loop = {
   price: number | null;
   beds: number | null;
   transactionType: string;
+  photoUrl: string | null;
+  createdAt: string;
 };
+
+// dotloop-style friendly house illustrations (a few variants, picked per loop).
+function HouseArt({ seed }: { seed: string }) {
+  const variant = seed.charCodeAt(seed.length - 1) % 3;
+  const sky = '#eaf5fc';
+  const mid = '#7cc1ea';
+  const fill = '#cfe9f8';
+  const ink = '#2b4a63';
+  return (
+    <svg viewBox="0 0 320 130" className="h-full w-full" preserveAspectRatio="xMidYMid slice">
+      <rect width="320" height="130" fill={sky} />
+      <circle cx="48" cy="34" r="13" fill="#fff" />
+      <circle cx="64" cy="34" r="16" fill="#fff" />
+      <circle cx="270" cy="30" r="11" fill="#fff" />
+      <circle cx="284" cy="30" r="14" fill="#fff" />
+      {/* tree */}
+      <circle cx="280" cy="92" r="18" fill={mid} opacity="0.7" />
+      <rect x="278" y="100" width="4" height="16" fill={ink} opacity="0.6" />
+      {variant === 2 ? (
+        // townhouse
+        <g>
+          <rect x="120" y="58" width="80" height="58" fill="#fff" stroke={ink} strokeWidth="2.5" />
+          <rect x="120" y="44" width="80" height="16" fill={mid} stroke={ink} strokeWidth="2.5" />
+          <rect x="134" y="74" width="16" height="16" fill={fill} stroke={ink} strokeWidth="2" />
+          <rect x="170" y="74" width="16" height="16" fill={fill} stroke={ink} strokeWidth="2" />
+          <rect x="150" y="96" width="20" height="20" fill={mid} stroke={ink} strokeWidth="2" />
+        </g>
+      ) : (
+        // detached house
+        <g>
+          <rect x="118" y="66" width="84" height="50" fill="#fff" stroke={ink} strokeWidth="2.5" />
+          <path
+            d="M112 66 L160 36 L208 66 Z"
+            fill={mid}
+            stroke={ink}
+            strokeWidth="2.5"
+            strokeLinejoin="round"
+          />
+          <rect x="132" y="80" width="16" height="16" fill={fill} stroke={ink} strokeWidth="2" />
+          <rect x="172" y="80" width="16" height="16" fill={fill} stroke={ink} strokeWidth="2" />
+          <rect x="152" y="92" width="18" height="24" fill={mid} stroke={ink} strokeWidth="2" />
+          {variant === 1 && (
+            <g stroke={ink} strokeWidth="2" fill="none">
+              <circle cx="232" cy="108" r="9" />
+              <circle cx="252" cy="108" r="9" />
+              <path d="M232 108 L242 92 L252 108 M242 92 L246 92" />
+            </g>
+          )}
+        </g>
+      )}
+    </svg>
+  );
+}
 
 type PropertyResult = {
   mlsNumber: string;
@@ -422,7 +497,11 @@ function AddLoopModal({ onClose }: { onClose: () => void }) {
 const TABS = ['Loops', 'Tasks', 'People', 'Templates'];
 
 export default function LoopsPage() {
-  const { loops, search } = useLoaderData() as { loops: Loop[]; search: string };
+  const { loops, search, creatorName } = useLoaderData() as {
+    loops: Loop[];
+    search: string;
+    creatorName: string;
+  };
   const submit = useSubmit();
   const archiveFetcher = useFetcher();
   const [showAdd, setShowAdd] = useState(false);
@@ -509,71 +588,104 @@ export default function LoopsPage() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {loops.map((loop) => (
-            <div
-              key={loop.id}
-              className={`relative transition-opacity ${
-                archivingId === loop.id ? 'pointer-events-none opacity-40' : ''
-              }`}
-            >
-              <Link
-                to={`/loops/${loop.id}`}
-                className="block overflow-hidden rounded-xl border border-gray-200 bg-white transition-shadow hover:shadow-md"
+          {loops.map((loop) => {
+            const typeLabel = TYPE_LABELS[loop.transactionType] ?? loop.transactionType;
+            const priceLabel =
+              loop.transactionType === 'LISTING'
+                ? 'Listing'
+                : loop.transactionType === 'LEASE'
+                  ? 'Lease'
+                  : 'Sale';
+            return (
+              <div
+                key={loop.id}
+                className={`relative overflow-hidden rounded-xl border border-gray-200 bg-white transition-shadow hover:shadow-md ${
+                  archivingId === loop.id ? 'pointer-events-none opacity-40' : ''
+                }`}
               >
-                <div
-                  className="flex h-28 items-center justify-center"
-                  style={{ background: `linear-gradient(135deg, ${INK}, #0077b6)` }}
-                >
-                  <svg
-                    className="h-10 w-10 text-white/80"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d="M3 12l9-9 9 9M5 10v10h14V10"
-                    />
-                  </svg>
-                </div>
-                <div className="p-4">
-                  <p className="truncate font-semibold text-gray-900">{loop.address}</p>
-                  <p className="truncate text-sm text-gray-500">
-                    {loop.city}
-                    {loop.state ? `, ${loop.state}` : ''}
-                  </p>
-                  <div className="mt-3 flex items-center justify-between">
-                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
-                      {TYPE_LABELS[loop.transactionType] ?? loop.transactionType}
+                <Link to={`/loops/${loop.id}`} className="block">
+                  {/* header: photo or illustration + New badge */}
+                  <div className="relative h-32 w-full overflow-hidden">
+                    {loop.photoUrl ? (
+                      <img
+                        src={loop.photoUrl}
+                        alt={loop.address}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <HouseArt seed={loop.id} />
+                    )}
+                    <span className="absolute left-3 top-3 rounded bg-[#1d6fb8] px-2 py-0.5 text-xs font-semibold text-white shadow-sm">
+                      New
                     </span>
-                    {loop.price ? (
-                      <span className="text-sm font-bold" style={{ color: INK }}>
-                        {formatPrice(loop.price)}
-                      </span>
-                    ) : null}
                   </div>
-                </div>
-              </Link>
 
-              <button
-                onClick={(e) => archiveLoop(e, loop.id, loop.address)}
-                title="Archive loop"
-                aria-label="Archive loop"
-                className="absolute right-2 top-2 z-10 rounded-full bg-white/90 p-1.5 text-gray-500 shadow-sm transition-colors hover:bg-white hover:text-red-600"
-              >
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.8}
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                  />
-                </svg>
-              </button>
-            </div>
-          ))}
+                  {/* body */}
+                  <div className="p-4">
+                    <p className="font-semibold leading-snug text-gray-900">
+                      {loop.address}
+                      {loop.city ? `, ${loop.city}` : ''}
+                      {loop.state ? `, ${loop.state}` : ''}
+                    </p>
+
+                    <dl className="mt-3 space-y-1 text-sm">
+                      <div>
+                        <span className="text-gray-400">Type: </span>
+                        <span className="font-medium text-gray-700">{typeLabel}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Status: </span>
+                        <span className="font-medium text-gray-700">None</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">{priceLabel}: </span>
+                        {loop.price ? (
+                          <span className="font-semibold" style={{ color: INK }}>
+                            {formatPrice(loop.price)}
+                          </span>
+                        ) : (
+                          <span className="font-medium text-[#1d6fb8]">Enter price</span>
+                        )}
+                      </div>
+                    </dl>
+
+                    <p className="mt-3 text-xs text-gray-400">Creator: {creatorName}</p>
+                    <p className="text-xs text-gray-400">
+                      Created: {formatCreated(loop.createdAt)}
+                    </p>
+                  </div>
+                </Link>
+
+                {/* footer: Archive */}
+                <div className="flex items-center gap-2 border-t border-gray-100 px-4 py-2.5 text-xs">
+                  <button
+                    onClick={(e) => archiveLoop(e, loop.id, loop.address)}
+                    className="flex items-center gap-1.5 font-medium text-gray-500 transition-colors hover:text-red-600"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.8}
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                    Archive
+                  </button>
+                </div>
+
+                {/* "Enter Closing" progress ring (decorative) */}
+                <Link
+                  to={`/loops/${loop.id}`}
+                  className="absolute bottom-12 right-3 flex h-14 w-14 items-center justify-center rounded-full border-[3px] border-gray-200 bg-white text-center text-[9px] font-semibold leading-tight text-gray-400 transition-colors hover:border-[#1d6fb8] hover:text-[#1d6fb8]"
+                >
+                  Enter
+                  <br />
+                  Closing
+                </Link>
+              </div>
+            );
+          })}
         </div>
       )}
 
