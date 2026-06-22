@@ -185,6 +185,12 @@ function AddLoopModal({ onClose }: { onClose: () => void }) {
     ? `${selected.address}, ${selected.city}${selected.state ? `, ${selected.state}` : ''}`
     : query.trim();
 
+  const searchStateLabel = SEARCH_STATES.find(([c]) => c === searchState)?.[1] ?? '';
+  // Search ran (2+ chars, nothing selected) but found nothing — likely a state
+  // with no synced listings, or an address not in the data.
+  const noMatches =
+    !selected && query.trim().length >= 2 && results.length === 0 && fetcher.state === 'idle';
+
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 p-4 pt-20">
       <div className="relative w-full max-w-2xl rounded-2xl bg-white p-8 shadow-2xl">
@@ -290,9 +296,17 @@ function AddLoopModal({ onClose }: { onClose: () => void }) {
               </div>
             )}
 
-            <p className="mt-2 text-xs text-gray-400">
-              Not in the list? Type the full address — you can still create the loop.
-            </p>
+            {noMatches ? (
+              <p className="mt-2 text-xs text-gray-500">
+                {searchStateLabel
+                  ? `No ${searchStateLabel} listings synced yet — type the full address; you can still create the loop.`
+                  : 'No matches — type the full address; you can still create the loop.'}
+              </p>
+            ) : (
+              <p className="mt-2 text-xs text-gray-400">
+                Not in the list? Type the full address — you can still create the loop.
+              </p>
+            )}
           </div>
         )}
 
