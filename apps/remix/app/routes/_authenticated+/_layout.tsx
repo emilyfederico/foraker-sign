@@ -72,11 +72,12 @@ export default function Layout({ loaderData, params, matches }: Route.ComponentP
   const orgNotFound = params.orgUrl && !currentOrganisation;
   const teamNotFound = params.teamUrl && !currentTeam;
 
-  // Hide the header for editor routes.
+  // Hide the header for editor routes and the branded home/landing page.
   const hideHeader = matches.some(
     (match) =>
       match?.id === 'routes/_authenticated+/t.$teamUrl+/documents.$id.edit' ||
-      match?.id === 'routes/_authenticated+/t.$teamUrl+/templates.$id.edit',
+      match?.id === 'routes/_authenticated+/t.$teamUrl+/templates.$id.edit' ||
+      match?.id === 'routes/_authenticated+/home',
   );
 
   if (orgNotFound || teamNotFound) {

@@ -59,7 +59,7 @@ const handleFallbackErrorMessages = (code: string) => {
   return message;
 };
 
-const LOGIN_REDIRECT_PATH = '/';
+const LOGIN_REDIRECT_PATH = '/home';
 
 export const ZSignInFormSchema = z.object({
   email: zEmail().min(1),
