@@ -58,6 +58,13 @@ const TEMPLATES: Template[] = [
     pages: 75,
     desc: 'Full PA packet — consumer notice, guide, agreement of sale, and disclosures.',
   },
+  {
+    name: 'MD Disclosures Packet',
+    file: 'md-disclosures-packet.pdf',
+    badge: 'MD',
+    pages: 299,
+    desc: 'Maryland disclosures — property disclosure/disclaimer, renters’ rights, and tenants’ bill of rights (multi-language).',
+  },
 ];
 
 const TABS = ['Loops', 'Tasks', 'People', 'Templates'];
