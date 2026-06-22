@@ -1,5 +1,6 @@
 import { Link, isRouteErrorResponse, useLoaderData, useRouteError } from 'react-router';
 
+import { getSession } from '@documenso/auth/server/lib/utils/get-session';
 import { prisma } from '@documenso/prisma';
 
 const INK = '#262626';
@@ -32,8 +33,18 @@ const TYPE_LABELS: Record<string, string> = {
   LEASE: 'Lease',
 };
 
-export async function loader({ params }: { params: { loopId: string } }) {
-  const loop = await prisma.transaction.findUnique({ where: { id: params.loopId } });
+export async function loader({
+  request,
+  params,
+}: {
+  request: Request;
+  params: { loopId: string };
+}) {
+  const { user } = await getSession(request);
+  // Scoped to the owner so an agent can't open another agent's loop.
+  const loop = await prisma.transaction.findFirst({
+    where: { id: params.loopId, userId: user.id },
+  });
 
   if (!loop) {
     throw new Response('Loop not found', { status: 404 });

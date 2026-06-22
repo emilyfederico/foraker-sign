@@ -1162,6 +1162,9 @@ model Transaction {
   status          String   @default("ACTIVE") // ACTIVE | ARCHIVED
   photoUrl        String?
 
+  // Owning agent (User.id). Loops are private to the agent who created them.
+  userId Int?
+
   // Filled contract field values (AcroForm field name -> value) from the Fill view.
   fieldValues Json?
 
@@ -1170,4 +1173,5 @@ model Transaction {
 
   @@index([status])
   @@index([createdAt])
+  @@index([userId])
 }

@@ -2,6 +2,7 @@ import { type MouseEvent, useEffect, useRef, useState } from 'react';
 
 import { Link, useFetcher, useLoaderData, useNavigate, useSubmit } from 'react-router';
 
+import { getSession } from '@documenso/auth/server/lib/utils/get-session';
 import { prisma } from '@documenso/prisma';
 
 // Foraker charcoal accent, used across the Loops experience.
@@ -22,11 +23,14 @@ const SEARCH_STATES: [string, string][] = [
 ];
 
 export async function loader({ request }: { request: Request }) {
+  const { user } = await getSession(request);
   const url = new URL(request.url);
   const search = (url.searchParams.get('search') || '').trim();
 
   const loops = await prisma.transaction.findMany({
     where: {
+      // Each agent only sees their own loops.
+      userId: user.id,
       status: 'ACTIVE',
       ...(search
         ? {
@@ -46,14 +50,16 @@ export async function loader({ request }: { request: Request }) {
 }
 
 export async function action({ request }: { request: Request }) {
+  const { user } = await getSession(request);
   const form = await request.formData();
 
-  // Archive (soft-delete) a loop — removes it from the active list.
+  // Archive (soft-delete) a loop — removes it from the active list. Scoped to the
+  // agent so no one can archive another agent's loop.
   if (form.get('intent') === 'archive') {
     const loopId = String(form.get('loopId') || '');
     if (loopId) {
-      await prisma.transaction.update({
-        where: { id: loopId },
+      await prisma.transaction.updateMany({
+        where: { id: loopId, userId: user.id },
         data: { status: 'ARCHIVED' },
       });
     }
@@ -71,6 +77,7 @@ export async function action({ request }: { request: Request }) {
   try {
     const loop = await prisma.transaction.create({
       data: {
+        userId: user.id,
         address,
         city: String(form.get('city') || '') || null,
         state: String(form.get('state') || '') || null,

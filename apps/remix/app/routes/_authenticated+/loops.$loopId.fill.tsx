@@ -4,6 +4,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker?url';
 import { Link, isRouteErrorResponse, useFetcher, useLoaderData, useRouteError } from 'react-router';
 
+import { getSession } from '@documenso/auth/server/lib/utils/get-session';
 import { prisma } from '@documenso/prisma';
 
 import { CONTRACT_FIELD_MAP, type FieldBox } from '~/utils/contract-field-map.server';
@@ -34,8 +35,17 @@ export function ErrorBoundary() {
   );
 }
 
-export async function loader({ params }: { params: { loopId: string } }) {
-  const loop = await prisma.transaction.findUnique({ where: { id: params.loopId } });
+export async function loader({
+  request,
+  params,
+}: {
+  request: Request;
+  params: { loopId: string };
+}) {
+  const { user } = await getSession(request);
+  const loop = await prisma.transaction.findFirst({
+    where: { id: params.loopId, userId: user.id },
+  });
   if (!loop) {
     throw new Response('Loop not found', { status: 404 });
   }
@@ -75,6 +85,7 @@ export async function action({
   request: Request;
   params: { loopId: string };
 }) {
+  const { user } = await getSession(request);
   const form = await request.formData();
   const raw = form.get('values');
   let values: Record<string, string> = {};
@@ -83,8 +94,9 @@ export async function action({
   } catch {
     return Response.json({ error: 'Invalid values' }, { status: 400 });
   }
-  await prisma.transaction.update({
-    where: { id: params.loopId },
+  // Scoped to the owner so an agent can't save into another agent's loop.
+  await prisma.transaction.updateMany({
+    where: { id: params.loopId, userId: user.id },
     data: { fieldValues: values },
   });
   return Response.json({ saved: true });
