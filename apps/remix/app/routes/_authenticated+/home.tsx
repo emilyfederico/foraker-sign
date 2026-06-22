@@ -1,5 +1,7 @@
 import { Link } from 'react-router';
 
+import { authClient } from '@documenso/auth/client';
+
 // Branded post-login landing for Foraker Sign. The app header is hidden for this
 // route (see _layout.tsx hideHeader) so the hero is a full-bleed takeover; the
 // buttons/nav launch agents into the app.
@@ -27,6 +29,9 @@ const CSS = `
   .fk .nav{display:flex;gap:26px;font-size:13px;letter-spacing:.04em;align-items:center;}
   .fk .nav a{color:rgba(255,255,255,.85);text-decoration:none;}
   .fk .nav a:hover{color:#fff;}
+  .fk .nav .signout{background:none;border:1px solid rgba(255,255,255,.4);border-radius:999px;
+      padding:7px 16px;font:inherit;font-size:13px;letter-spacing:.04em;color:rgba(255,255,255,.85);cursor:pointer;}
+  .fk .nav .signout:hover{background:rgba(255,255,255,.12);color:#fff;}
   .fk .hero-foot{max-width:820px;}
   .fk .eyebrow{font-size:12px;letter-spacing:.42em;color:var(--gold);font-weight:600;margin-bottom:18px;}
   .fk .hl{font-size:clamp(38px,6.6vw,82px);line-height:1.02;font-weight:600;letter-spacing:-.01em;margin:0;color:#fff;}
@@ -81,13 +86,13 @@ export default function HomePage() {
               <Link to="/loops">Loops</Link>
               <Link to="/properties">Properties</Link>
               <Link to="/inbox">Documents</Link>
+              <button type="button" className="signout" onClick={() => void authClient.signOut()}>
+                Sign out
+              </button>
             </nav>
           </div>
 
           <div className="hero-foot">
-            <div className="eyebrow up d1">
-              FORAKER&nbsp;REALTY&nbsp;CO&nbsp;&middot;&nbsp;DE&nbsp;&middot;&nbsp;PA&nbsp;&middot;&nbsp;MD
-            </div>
             <h1 className="hl serif up d2">
               Contracts,
               <br />
