@@ -62,7 +62,7 @@ const TEMPLATES: Template[] = [
     name: 'MD Disclosures Packet',
     file: 'md-disclosures-packet.pdf',
     badge: 'MD',
-    pages: 299,
+    pages: 513,
     desc: 'Maryland disclosures — property disclosure/disclaimer, renters’ rights, and tenants’ bill of rights (multi-language).',
   },
 ];
