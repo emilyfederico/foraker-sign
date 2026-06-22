@@ -44,6 +44,9 @@ model User {
   password         String? // Todo: (RR7) Remove after RR7 migration.
   source           String?
   signature        String?
+  // Foraker agent profile (name, license #, brokerage, office address, phones,
+  // email) — auto-filled into the broker section of contracts. JSON for flexibility.
+  agentProfile     Json?
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @default(now()) @updatedAt
   lastSignedIn     DateTime         @default(now())
