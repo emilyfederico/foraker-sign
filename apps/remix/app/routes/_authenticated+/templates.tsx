@@ -148,10 +148,10 @@ export default function TemplatesPage() {
         agreements are also fillable inside a loop.
       </p>
 
-      <div className="flex flex-col gap-6 lg:flex-row">
+      <div className="flex flex-col gap-6 md:flex-row md:items-start">
         {/* Folder sidebar */}
-        <aside className="w-full shrink-0 lg:w-64">
-          <div className="rounded-xl border border-gray-200 bg-white p-2">
+        <aside className="w-full shrink-0 md:w-64">
+          <div className="max-h-[45vh] overflow-y-auto rounded-xl border border-gray-200 bg-white p-2 md:max-h-none md:overflow-visible">
             <button
               onClick={() => setFolder('all')}
               className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-semibold"
