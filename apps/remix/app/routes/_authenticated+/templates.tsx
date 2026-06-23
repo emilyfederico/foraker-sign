@@ -135,6 +135,22 @@ const TEMPLATES: Template[] = [
     desc: 'Maryland disclosures — property disclosure/disclaimer, renters’ rights, tenants’ bill of rights (multi-language).',
   },
   {
+    name: 'Real Estate Transfer Disclosure (Cecil County Right to Farm)',
+    file: 'md-cecil-transfer-disclosure.pdf',
+    badge: 'MD',
+    pages: 1,
+    folder: 'md-buying',
+    desc: 'Cecil County, MD right-to-farm transfer disclosure.',
+  },
+  {
+    name: 'Addendum — Hazardous Waste Sites (Cecil County)',
+    file: 'md-cecil-hazardous-waste-addendum.pdf',
+    badge: 'MD',
+    pages: 1,
+    folder: 'md-buying',
+    desc: 'Cecil County, MD hazardous waste sites addendum to contract of sale.',
+  },
+  {
     name: 'Affiliation Agreement',
     file: 'foraker-affiliation-agreement.pdf',
     badge: 'Foraker',
