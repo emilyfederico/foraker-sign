@@ -363,6 +363,7 @@ export async function action({ request }: { request: Request }) {
   return Response.json({
     reply: `Done — created a ${parsed.state} contract for ${property.address} with buyer ${parsed.buyerName}.${summary}`,
     url: result.url,
+    documentId: result.documentId,
   });
 }
 

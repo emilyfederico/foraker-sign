@@ -147,7 +147,7 @@ async function generateRichContract({
   request,
   computed,
   brokerage,
-}: GenerateArgs): Promise<{ url: string }> {
+}: GenerateArgs): Promise<{ url: string; documentId: number }> {
   const pdfBase64 = CONTRACT_FORMS_BASE64[state];
   if (!pdfBase64) {
     throw new Error(`No embedded fillable form for state ${state}`);
@@ -195,7 +195,7 @@ async function generateRichContract({
   });
 
   const documentId = mapSecondaryIdToDocumentId(envelope.secondaryId);
-  return { url: `${WEBAPP_URL}/t/${team.url}/documents/${documentId}` };
+  return { url: `${WEBAPP_URL}/t/${team.url}/documents/${documentId}`, documentId };
 }
 
 /**
@@ -209,7 +209,7 @@ async function generateFromSimpleTemplate({
   buyerName,
   buyerEmail,
   request,
-}: GenerateArgs): Promise<{ url: string } | { error: string }> {
+}: GenerateArgs): Promise<{ url: string; documentId: number } | { error: string }> {
   const template = await prisma.envelope.findFirst({
     where: {
       userId,
@@ -267,7 +267,7 @@ async function generateFromSimpleTemplate({
   });
 
   const documentId = mapSecondaryIdToDocumentId(envelope.secondaryId);
-  return { url: `${WEBAPP_URL}/t/${template.team.url}/documents/${documentId}` };
+  return { url: `${WEBAPP_URL}/t/${template.team.url}/documents/${documentId}`, documentId };
 }
 
 /**
@@ -284,7 +284,7 @@ async function generateViaVisibleTemplate({
   request,
   computed,
   brokerage,
-}: GenerateArgs): Promise<{ url: string } | null> {
+}: GenerateArgs): Promise<{ url: string; documentId: number } | null> {
   const template = await prisma.envelope.findFirst({
     where: {
       userId,
@@ -319,7 +319,7 @@ async function generateViaVisibleTemplate({
   });
 
   const documentId = mapSecondaryIdToDocumentId(envelope.secondaryId);
-  return { url: `${WEBAPP_URL}/t/${template.team.url}/documents/${documentId}` };
+  return { url: `${WEBAPP_URL}/t/${template.team.url}/documents/${documentId}`, documentId };
 }
 
 // The agent's own brokerage from their "My Info" profile, used to pre-fill the
@@ -341,7 +341,7 @@ async function getAgentBrokerage(userId: number): Promise<string | undefined> {
  */
 export async function generateContractDocument(
   args: GenerateArgs,
-): Promise<{ url: string } | { error: string }> {
+): Promise<{ url: string; documentId: number } | { error: string }> {
   const errs: string[] = [];
   const msg = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
