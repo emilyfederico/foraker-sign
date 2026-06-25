@@ -1087,6 +1087,65 @@ function TemplateCard({ t }: { t: Template }) {
   );
 }
 
+// The Tenants Bill of Rights ships in many languages — collapse them into one
+// card with a language dropdown instead of 18 separate cards.
+const TBOR_RE = /^Tenants Bill of Rights — (.+) \(MREC\)$/;
+
+function LanguagePickerCard({ items }: { items: Template[] }) {
+  const langs = items
+    .map((t) => ({ lang: TBOR_RE.exec(t.name)?.[1] ?? t.name, file: t.file }))
+    .sort((a, b) =>
+      a.lang === 'English' ? -1 : b.lang === 'English' ? 1 : a.lang.localeCompare(b.lang),
+    );
+  const [file, setFile] = useState(langs[0]?.file ?? '');
+
+  return (
+    <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-5 transition-shadow hover:shadow-md">
+      <div className="mb-3 flex items-center justify-between">
+        <span
+          className="rounded-full px-2.5 py-0.5 text-xs font-semibold text-white"
+          style={{ backgroundColor: INK }}
+        >
+          MD
+        </span>
+        <span className="text-xs text-gray-400">{langs.length} languages</span>
+      </div>
+      <h3 className="text-base font-semibold text-gray-900">Tenants Bill of Rights</h3>
+      <p className="mt-1 flex-1 text-sm text-gray-500">
+        Maryland Real Estate Commission &mdash; pick a language and the form opens.
+      </p>
+      <label className="mb-1 mt-3 block text-xs font-medium" style={{ color: INK }}>
+        Language
+      </label>
+      <select
+        value={file}
+        onChange={(e) => setFile(e.target.value)}
+        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-gray-900 focus:outline-none"
+      >
+        {langs.map((l) => (
+          <option key={l.file} value={l.file}>
+            {l.lang}
+          </option>
+        ))}
+      </select>
+      <div className="mt-4 flex items-center gap-3 text-sm">
+        <a
+          href={`/templates/${file}`}
+          target="_blank"
+          rel="noreferrer"
+          className="rounded-lg px-4 py-2 font-semibold text-white"
+          style={{ backgroundColor: INK }}
+        >
+          View
+        </a>
+        <a href={`/templates/${file}`} download className="font-semibold" style={{ color: INK }}>
+          Download
+        </a>
+      </div>
+    </div>
+  );
+}
+
 export default function TemplatesPage() {
   const [openFolder, setOpenFolder] = useState<string | null>(null);
 
@@ -1181,9 +1240,14 @@ export default function TemplatesPage() {
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {folderTemplates.map((t) => (
-                <TemplateCard key={t.file} t={t} />
-              ))}
+              {folderTemplates
+                .filter((t) => !TBOR_RE.test(t.name))
+                .map((t) => (
+                  <TemplateCard key={t.file} t={t} />
+                ))}
+              {folderTemplates.some((t) => TBOR_RE.test(t.name)) && (
+                <LanguagePickerCard items={folderTemplates.filter((t) => TBOR_RE.test(t.name))} />
+              )}
             </div>
           )}
         </>
