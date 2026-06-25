@@ -233,7 +233,7 @@ export async function action({ request }: { request: Request }) {
   try {
     const completion = await anthropic.messages.create({
       model: 'claude-opus-4-8',
-      max_tokens: 512,
+      max_tokens: 1024,
       system:
         "You extract real-estate contract requests. Given a realtor's message, return the " +
         'contract state (PA, MD, or DE), property street address, buyer name, and buyer email; ' +
@@ -247,13 +247,22 @@ export async function action({ request }: { request: Request }) {
     });
 
     const text = completion.content.find((b) => b.type === 'text');
-    parsed = JSON.parse(text && 'text' in text ? text.text : '{}') as ParsedRequest;
+    let raw = text && 'text' in text ? text.text : '';
+    // Be tolerant of a model that wraps JSON in ``` fences instead of emitting raw JSON.
+    raw = raw
+      .trim()
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/\s*```$/, '')
+      .trim();
+    parsed = JSON.parse(raw || '{}') as ParsedRequest;
   } catch (err) {
     console.error('Chat parse error:', err);
+    // Temporary: surface the real cause so we can fix it (revert to the generic
+    // message once the chat is confirmed working).
+    const detail = err instanceof Error ? err.message : String(err);
     return Response.json(
       {
-        reply:
-          'I had trouble understanding that. Try: "Make a PA contract for 123 Main St, buyer John Smith".',
+        reply: `I had trouble understanding that. (debug: ${detail.slice(0, 400)})`,
       },
       { status: 200 },
     );
