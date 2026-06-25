@@ -257,12 +257,35 @@ export async function action({ request }: { request: Request }) {
     parsed = JSON.parse(raw || '{}') as ParsedRequest;
   } catch (err) {
     console.error('Chat parse error:', err);
-    // Temporary: surface the real cause so we can fix it (revert to the generic
-    // message once the chat is confirmed working).
-    const detail = err instanceof Error ? err.message : String(err);
+    const detail = (err instanceof Error ? err.message : String(err)).toLowerCase();
+    // Billing/auth problems on the Anthropic account aren't the agent's fault —
+    // tell the operator what to actually fix instead of "trouble understanding".
+    if (
+      detail.includes('credit balance') ||
+      detail.includes('billing') ||
+      detail.includes('quota')
+    ) {
+      return Response.json(
+        {
+          reply:
+            'The contract assistant is paused — the Anthropic API account is out of credits. Add credits at console.anthropic.com → Billing and it will work again immediately.',
+        },
+        { status: 200 },
+      );
+    }
+    if (detail.includes('authentication') || detail.includes('api key') || detail.includes('401')) {
+      return Response.json(
+        {
+          reply:
+            'The contract assistant isn’t configured correctly — the Anthropic API key looks invalid. Re-check ANTHROPIC_API_KEY in Railway.',
+        },
+        { status: 200 },
+      );
+    }
     return Response.json(
       {
-        reply: `I had trouble understanding that. (debug: ${detail.slice(0, 400)})`,
+        reply:
+          'I had trouble understanding that. Try: "Make a PA contract for 123 Main St, buyer John Smith".',
       },
       { status: 200 },
     );
