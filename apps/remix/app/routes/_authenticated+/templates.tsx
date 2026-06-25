@@ -8,6 +8,7 @@ const INK = '#262626';
 const FOLDERS: { id: string; label: string }[] = [
   { id: 'md-buying', label: 'MD Buying Docs' },
   { id: 'de-buying', label: 'DE Buying Docs' },
+  { id: 'docspot', label: 'DOCSPOT' },
   { id: 'pa-buying', label: 'PA Buying Documents' },
   { id: 'pa-listing', label: 'PA Listing Documents' },
   { id: 'master', label: 'Foraker Realty Co Master Documents' },
@@ -59,6 +60,31 @@ const TEMPLATES: Template[] = [
     fillable: true,
     folder: 'md-buying',
     desc: 'Maryland REALTORS residential contract of sale.',
+  },
+  {
+    name: 'Agreement of Sale for Delaware Residential Property',
+    file: 'de-agreement-of-sale.pdf',
+    badge: 'DE',
+    pages: 10,
+    fillable: true,
+    folder: 'de-buying',
+    desc: 'Delaware Association of REALTORS residential agreement of sale.',
+  },
+  {
+    name: 'ICA — Foraker Realty Affiliation',
+    file: 'ica-foraker-affiliation.pdf',
+    badge: 'FRC',
+    pages: 6,
+    folder: 'docspot',
+    desc: 'Independent Contractor Agreement — Foraker Realty Co affiliation.',
+  },
+  {
+    name: 'Team Addendum to the Independent Contractor Agreement',
+    file: 'team-addendum-ica.pdf',
+    badge: 'FRC',
+    pages: 3,
+    folder: 'docspot',
+    desc: 'Team addendum to the Foraker Realty independent contractor agreement.',
   },
 ];
 
