@@ -9,6 +9,14 @@ import { mapSecondaryIdToDocumentId } from '@documenso/lib/utils/envelope';
 import { prisma } from '@documenso/prisma';
 
 import { CONTRACT_FORMS_BASE64 } from './contract-forms.server';
+import {
+  type ComputedDeal,
+  type FinancingType,
+  type StateCode,
+  computeDeal,
+  formatMdy,
+  formatUsd,
+} from './deal-rules';
 
 // Server-only: this pulls in `.server` PDF/storage modules that must never reach
 // the client bundle. The `*.server.ts` suffix guarantees React Router excludes it.
@@ -24,21 +32,41 @@ function formatPrice(price: unknown): string {
   }).format(Number(price));
 }
 
-type GenerateArgs = {
+type DealTermsInput = {
+  financing?: FinancingType;
+  downPayment?: number;
+  settlementDays?: number;
+  electHomeInspection?: boolean;
+  hasSeptic?: boolean;
+  hasWell?: boolean;
+  sellerContribution?: boolean;
+  saleContingency?: boolean;
+  firstDealWithBuyer?: boolean;
+};
+
+type GenerateArgs = DealTermsInput & {
   userId: number;
   state: string;
   property: Record<string, unknown>;
   buyerName: string;
   buyerEmail: string;
   request: Request;
+  // Populated internally by generateContractDocument before the form is filled.
+  computed?: ComputedDeal;
+  brokerage?: string;
 };
 
 // Maps the property/buyer data to each form's AcroForm field names. Field names
 // were assigned when the fillable PDFs were generated; verified by rendering.
+// `computed` carries the rule-derived defaults (earnest money, settlement date,
+// loan amount, offer date) and `brokerage` the agent's own brokerage; both are
+// only written when non-empty so an absent value never blanks a field.
 export function formValuesForState(
   state: string,
   property: Record<string, unknown>,
   buyerName: string,
+  computed?: ComputedDeal,
+  brokerage?: string,
 ): Record<string, string> {
   const address = String(property.address ?? '');
   const city = String(property.city ?? '');
@@ -49,35 +77,60 @@ export function formValuesForState(
   // is NEVER the listing brokerage. Leave it blank for the agent to type in.
   const seller = '';
 
+  // Rule-derived values (1% earnest money, +30d settlement bumped off weekends/
+  // holidays, loan = price − down payment, today's offer date, ~21d commitment).
+  const earnest = computed ? formatUsd(computed.earnestMoney) : '';
+  const loan = computed && computed.loanAmount > 0 ? formatUsd(computed.loanAmount) : '';
+  const settlement = computed ? formatMdy(computed.settlementDate) : '';
+  const offer = computed ? formatMdy(computed.offerDate) : '';
+  const commitment = computed ? formatMdy(computed.mortgageCommitmentDate) : '';
+  const depositDue = computed ? String(computed.depositDueDays) : '';
+  const broker = brokerage ?? '';
+
+  const out: Record<string, string> = {};
+  const put = (key: string, value: string) => {
+    if (value) out[key] = value;
+  };
+
   if (state === 'DE') {
-    return {
-      p1_seller_1: seller,
-      p1_buyer_1: buyerName,
-      p1_a_purchase_price_1: price,
-      p1_field_1: [city, county && `${county} County`].filter(Boolean).join(', '),
-      p1_field_2: address,
-    };
+    put('p1_seller_1', seller);
+    put('p1_buyer_1', buyerName);
+    put('p1_a_purchase_price_1', price);
+    put('p1_field_1', [city, county && `${county} County`].filter(Boolean).join(', '));
+    put('p1_field_2', address);
+    put('p1_deposit_due_within_1', depositDue);
+    put('p10_deposit_received_1', earnest);
+    put('p2_financing_loan_amount_1', loan);
+    put('p9_date_of_agreement_1', offer);
+    return out;
   }
   if (state === 'MD') {
-    return {
-      p1_3seller_1: seller,
-      p1_4buyer_1: buyerName,
-      p1_property_known_as_1: address,
-      p1_field_1: city,
-      p1_field_2: county,
-      p1_purchase_price_is_1: price,
-    };
+    put('p1_3seller_1', seller);
+    put('p1_4buyer_1', buyerName);
+    put('p1_property_known_as_1', address);
+    put('p1_field_1', city);
+    put('p1_field_2', county);
+    put('p1_purchase_price_is_1', price);
+    put('p1_1date_of_offer_1', offer);
+    put('p2_date_of_settlement_1', settlement);
+    put('p11_brokerage_company_name_1', broker);
+    put('p11_brokerage_company_name_2', broker);
+    return out;
   }
   if (state === 'PA') {
-    return {
-      p1_buyers_1: buyerName,
-      p1_buyers_sellers_1: seller,
-      p1_including_postal_city_1: [address, city].filter(Boolean).join(', '),
-      p1_of_county_of_1: county,
-      p1_the_municipality_of_1: city,
-    };
+    put('p1_buyers_1', buyerName);
+    put('p1_buyers_sellers_1', seller);
+    put('p1_including_postal_city_1', [address, city].filter(Boolean).join(', '));
+    put('p1_of_county_of_1', county);
+    put('p1_the_municipality_of_1', city);
+    put('p2_settlement_date_is_1', settlement);
+    put('p4_loan_amount_1', loan);
+    put('p4_mortgage_commitment_date_1', commitment);
+    put('p1_broker_company_1', broker);
+    put('p1_broker_company_2', broker);
+    return out;
   }
-  return {};
+  return out;
 }
 
 /**
@@ -92,6 +145,8 @@ async function generateRichContract({
   buyerName,
   buyerEmail,
   request,
+  computed,
+  brokerage,
 }: GenerateArgs): Promise<{ url: string }> {
   const pdfBase64 = CONTRACT_FORMS_BASE64[state];
   if (!pdfBase64) {
@@ -107,7 +162,7 @@ async function generateRichContract({
     throw new Error('No team found for user');
   }
 
-  const formValues = formValuesForState(state, property, buyerName);
+  const formValues = formValuesForState(state, property, buyerName, computed, brokerage);
   const filled = await insertFormValuesInPdf({
     pdf: Buffer.from(pdfBase64, 'base64'),
     formValues,
@@ -227,6 +282,8 @@ async function generateViaVisibleTemplate({
   buyerName,
   buyerEmail,
   request,
+  computed,
+  brokerage,
 }: GenerateArgs): Promise<{ url: string } | null> {
   const template = await prisma.envelope.findFirst({
     where: {
@@ -252,7 +309,7 @@ async function generateViaVisibleTemplate({
     userId,
     teamId: template.teamId,
     recipients: [{ id: recipient.id, name: buyerName, email: buyerEmail }],
-    formValues: formValuesForState(state, property, buyerName),
+    formValues: formValuesForState(state, property, buyerName, computed, brokerage),
     override: { title: `${String(property.address)} - Contract` },
     requestMetadata: {
       source: 'app',
@@ -263,6 +320,17 @@ async function generateViaVisibleTemplate({
 
   const documentId = mapSecondaryIdToDocumentId(envelope.secondaryId);
   return { url: `${WEBAPP_URL}/t/${template.team.url}/documents/${documentId}` };
+}
+
+// The agent's own brokerage from their "My Info" profile, used to pre-fill the
+// brokerage fields per the universal rule. Returns undefined if not set.
+async function getAgentBrokerage(userId: number): Promise<string | undefined> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { agentProfile: true },
+  });
+  const profile = user?.agentProfile as { brokerage?: string } | null;
+  return profile?.brokerage?.trim() || undefined;
 }
 
 /**
@@ -277,8 +345,34 @@ export async function generateContractDocument(
   const errs: string[] = [];
   const msg = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
+  // Derive the rule-based deal defaults (1% earnest money, +30d settlement bumped
+  // off weekends/holidays, loan = price − down payment, today's offer date, ~21d
+  // mortgage commitment) plus the agent's brokerage, then thread them through.
+  const price = Number(args.property.price) || 0;
+  const yearBuiltRaw = args.property.yearBuilt;
+  const yearBuilt = yearBuiltRaw ? Number(yearBuiltRaw) || undefined : undefined;
+  const computed =
+    price > 0
+      ? computeDeal({
+          price,
+          financing: args.financing ?? 'conventional',
+          downPayment: args.downPayment,
+          settlementDays: args.settlementDays,
+          state: args.state as StateCode,
+          electHomeInspection: args.electHomeInspection ?? true,
+          hasSeptic: args.hasSeptic ?? false,
+          hasWell: args.hasWell ?? false,
+          sellerContribution: args.sellerContribution ?? false,
+          saleContingency: args.saleContingency ?? false,
+          firstDealWithBuyer: args.firstDealWithBuyer ?? false,
+          yearBuilt,
+        })
+      : undefined;
+  const brokerage = await getAgentBrokerage(args.userId);
+  const enriched: GenerateArgs = { ...args, computed, brokerage };
+
   try {
-    const viaTemplate = await generateViaVisibleTemplate(args);
+    const viaTemplate = await generateViaVisibleTemplate(enriched);
     if (viaTemplate) {
       return viaTemplate;
     }
@@ -288,14 +382,14 @@ export async function generateContractDocument(
   }
 
   try {
-    return await generateRichContract(args);
+    return await generateRichContract(enriched);
   } catch (err) {
     console.error('Embedded-form generation failed:', err);
     errs.push(`embedded: ${msg(err)}`);
   }
 
   try {
-    return await generateFromSimpleTemplate(args);
+    return await generateFromSimpleTemplate(enriched);
   } catch (err) {
     console.error('Simple-template generation failed:', err);
     errs.push(`simple: ${msg(err)}`);

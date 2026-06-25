@@ -4,6 +4,13 @@ import { getSession } from '@documenso/auth/server/lib/utils/get-session';
 import { prisma } from '@documenso/prisma';
 
 import { generateContractDocument } from '~/utils/contract-generation.server';
+import {
+  type FinancingType,
+  type StateCode,
+  computeDeal,
+  formatMdy,
+  formatUsd,
+} from '~/utils/deal-rules';
 
 // Valid contract states (the contract is generated into the logged-in agent's
 // own workspace by generateContractDocument).
@@ -17,6 +24,14 @@ type ParsedRequest = {
   address: string;
   buyerName: string;
   buyerEmail: string;
+  purchasePrice: number;
+  financing: FinancingType | '';
+  downPayment: number;
+  settlementDays: number;
+  hasSeptic: 'yes' | 'no' | '';
+  hasWell: 'yes' | 'no' | '';
+  electHomeInspection: 'yes' | 'no' | '';
+  firstDeal: 'yes' | 'no' | '';
 };
 
 const EXTRACTION_SCHEMA = {
@@ -40,8 +55,62 @@ const EXTRACTION_SCHEMA = {
       type: 'string',
       description: "The buyer's email address. Empty string if not stated.",
     },
+    purchasePrice: {
+      type: 'number',
+      description: 'The purchase/offer price in dollars (e.g. "485k" -> 485000). 0 if not stated.',
+    },
+    financing: {
+      type: 'string',
+      enum: ['cash', 'conventional', 'fha', 'va', 'usda', ''],
+      description: 'Financing type. "cash deal" -> cash. Empty string if not stated.',
+    },
+    downPayment: {
+      type: 'number',
+      description:
+        'Down payment as a dollar amount (e.g. 20000) or a fraction (e.g. 0.2 for 20%). 0 if not stated.',
+    },
+    settlementDays: {
+      type: 'number',
+      description:
+        'Days until settlement/closing if stated as a number of days (e.g. "settle in 45 days" -> 45). 0 if not stated or an explicit date was given.',
+    },
+    hasSeptic: {
+      type: 'string',
+      enum: ['yes', 'no', ''],
+      description: 'Whether the property has a septic system, if stated. Empty string if unknown.',
+    },
+    hasWell: {
+      type: 'string',
+      enum: ['yes', 'no', ''],
+      description: 'Whether the property has a well, if stated. Empty string if unknown.',
+    },
+    electHomeInspection: {
+      type: 'string',
+      enum: ['yes', 'no', ''],
+      description:
+        'Whether a home inspection is elected. "waive inspection" -> no. Empty string if not stated.',
+    },
+    firstDeal: {
+      type: 'string',
+      enum: ['yes', 'no', ''],
+      description:
+        "Whether this is the agent's first deal with this buyer (triggers buyer-agency/CIS/affiliated-business forms). Empty string if not stated.",
+    },
   },
-  required: ['state', 'address', 'buyerName', 'buyerEmail'],
+  required: [
+    'state',
+    'address',
+    'buyerName',
+    'buyerEmail',
+    'purchasePrice',
+    'financing',
+    'downPayment',
+    'settlementDays',
+    'hasSeptic',
+    'hasWell',
+    'electHomeInspection',
+    'firstDeal',
+  ],
   additionalProperties: false,
 } as const;
 
@@ -167,8 +236,12 @@ export async function action({ request }: { request: Request }) {
       max_tokens: 512,
       system:
         "You extract real-estate contract requests. Given a realtor's message, return the " +
-        'contract state (PA, MD, or DE), the property street address, the buyer name, and the ' +
-        'buyer email if present. Use null for anything not stated. Do not invent values.',
+        'contract state (PA, MD, or DE), property street address, buyer name, and buyer email; ' +
+        'plus the deal terms when stated: purchase price (dollars), financing type ' +
+        '(cash/conventional/fha/va/usda), down payment, days to settlement, whether the property ' +
+        'has a septic system or a well, whether a home inspection is elected, and whether this is ' +
+        "the agent's first deal with this buyer. Use the empty string for unstated text/enum " +
+        'fields and 0 for unstated numbers. Do not invent values.',
       output_config: { format: { type: 'json_schema', schema: EXTRACTION_SCHEMA } },
       messages: [{ role: 'user', content: message }],
     });
@@ -224,22 +297,71 @@ export async function action({ request }: { request: Request }) {
     );
   }
 
-  // 5. Generate the contract in the logged-in agent's own workspace.
+  // 5. Build the deal terms (defaults fill anything unstated) and generate the
+  //    contract in the logged-in agent's own workspace.
+  const financing: FinancingType = parsed.financing || 'conventional';
+  const electHomeInspection = parsed.electHomeInspection !== 'no';
+  const downPayment = parsed.downPayment || undefined;
+  const settlementDays = parsed.settlementDays || undefined;
+  const hasSeptic = parsed.hasSeptic === 'yes';
+  const hasWell = parsed.hasWell === 'yes';
+  const firstDealWithBuyer = parsed.firstDeal === 'yes';
+
+  const propertyForContract: Record<string, unknown> = {
+    ...(property as unknown as Record<string, unknown>),
+    price: parsed.purchasePrice || (property as { price?: unknown }).price,
+  };
+
   const result = await generateContractDocument({
     userId,
     state: parsed.state,
-    property: property as unknown as Record<string, unknown>,
+    property: propertyForContract,
     buyerName: parsed.buyerName,
     buyerEmail: parsed.buyerEmail,
     request,
+    financing,
+    downPayment,
+    settlementDays,
+    electHomeInspection,
+    hasSeptic,
+    hasWell,
+    firstDealWithBuyer,
   });
 
   if ('error' in result) {
     return Response.json({ reply: `Something went wrong: ${result.error}` }, { status: 200 });
   }
 
+  // Restate the price and the rule-derived defaults so the agent can confirm.
+  const priceNum = Number(propertyForContract.price) || 0;
+  let summary = '';
+  if (priceNum > 0) {
+    const cd = computeDeal({
+      price: priceNum,
+      financing,
+      downPayment,
+      settlementDays,
+      state: parsed.state as StateCode,
+      electHomeInspection,
+      hasSeptic,
+      hasWell,
+      sellerContribution: false,
+      saleContingency: false,
+      firstDealWithBuyer,
+    });
+    const loanPart =
+      financing === 'cash'
+        ? 'cash (financing & appraisal contingencies waived)'
+        : `${financing}, loan ${formatUsd(cd.loanAmount)}`;
+    summary =
+      ` Price ${formatUsd(priceNum)}, earnest money ${formatUsd(cd.earnestMoney)} (1%),` +
+      ` settlement ${formatMdy(cd.settlementDate)}, ${loanPart}.` +
+      (cd.addenda.length ? ` ${cd.addenda.length} addenda flagged.` : '') +
+      ' Review and adjust anything before sending.';
+  }
+
   return Response.json({
-    reply: `Done — created a ${parsed.state} contract for ${property.address} with buyer ${parsed.buyerName}.`,
+    reply: `Done — created a ${parsed.state} contract for ${property.address} with buyer ${parsed.buyerName}.${summary}`,
     url: result.url,
   });
 }
