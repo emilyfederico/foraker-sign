@@ -34,7 +34,33 @@ type Template = {
   fillable?: boolean;
 };
 
-const TEMPLATES: Template[] = [];
+const TEMPLATES: Template[] = [
+  {
+    name: 'Right to Farm (Cecil County)',
+    file: 'md-right-to-farm-cecil.pdf',
+    badge: 'MD',
+    pages: 1,
+    folder: 'md-buying',
+    desc: 'Cecil County, MD right-to-farm transfer disclosure.',
+  },
+  {
+    name: 'Cecil County Hazardous Waste Sites Addendum',
+    file: 'md-cecil-hazardous-waste.pdf',
+    badge: 'MD',
+    pages: 1,
+    folder: 'md-buying',
+    desc: 'Cecil County, MD hazardous waste sites addendum.',
+  },
+  {
+    name: 'Residential Contract of Sale (MAR)',
+    file: 'md-residential-contract-mar.pdf',
+    badge: 'MD',
+    pages: 11,
+    fillable: true,
+    folder: 'md-buying',
+    desc: 'Maryland REALTORS residential contract of sale.',
+  },
+];
 
 const TABS = ['Loops', 'Tasks', 'People', 'Templates'];
 
