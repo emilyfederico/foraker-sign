@@ -12,8 +12,17 @@ import { APP_I18N_OPTIONS } from '@documenso/lib/constants/i18n';
 import { dynamicActivate, extractLocaleData } from '@documenso/lib/utils/i18n';
 
 import { langCookie } from './storage/lang-cookie.server';
+import { recordServerError } from './utils/error-log.server';
 
 export const streamTimeout = 5_000;
+
+// React Router calls this for errors thrown in loaders/actions/render. Capture
+// them so the real stack is readable via /api/last-errors (the user only sees
+// the sanitized generic 500 page).
+export function handleError(error: unknown, { request }: { request: Request }) {
+  recordServerError(error, request);
+  console.error(error);
+}
 
 export default async function handleRequest(
   request: Request,
