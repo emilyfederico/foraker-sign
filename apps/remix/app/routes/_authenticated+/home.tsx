@@ -2,6 +2,8 @@ import { Link } from 'react-router';
 
 import { authClient } from '@documenso/auth/client';
 
+import { ContractChat } from '~/components/general/contract-chat';
+
 // Branded post-login landing for Foraker Sign. The app header is hidden for this
 // route (see _layout.tsx hideHeader) so the hero is a full-bleed takeover; the
 // buttons/nav launch agents into the app.
@@ -165,6 +167,7 @@ export default function HomePage() {
           <span>Foraker Sign &middot; Delaware &middot; Pennsylvania &middot; Maryland</span>
         </div>
       </div>
+      <ContractChat />
     </div>
   );
 }
