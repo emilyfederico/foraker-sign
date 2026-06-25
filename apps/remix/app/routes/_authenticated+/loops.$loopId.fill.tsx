@@ -314,19 +314,32 @@ export default function FillContractPage() {
                   ) : null}
                 </button>
               ) : (
-                <input
-                  key={`${pageIndex}-${i}`}
-                  value={values[f.name] ?? ''}
-                  onChange={(e) => setValues((v) => ({ ...v, [f.name]: e.target.value }))}
-                  className="absolute box-border bg-yellow-100/40 px-0.5 text-[11px] text-gray-900 outline-none focus:bg-yellow-100 focus:ring-1"
-                  style={{
-                    left: `${f.xPct * 100}%`,
-                    top: `${f.yPct * 100}%`,
-                    width: `${f.wPct * 100}%`,
-                    height: `${Math.max(f.hPct * 100, 1.6)}%`,
-                    borderBottom: '1px solid rgba(0,0,0,0.25)',
-                  }}
-                />
+                (() => {
+                  // Anchor the typed text on the form's line (the bottom of the
+                  // field box) with a font scaled to the line height, so values
+                  // sit on the blank instead of overlapping the label above or the
+                  // printed line below. Positioned in px off the rendered page size.
+                  const lineY = (f.yPct + f.hPct) * size.height;
+                  const fontPx = Math.min(Math.max(f.hPct * size.height * 0.9, 9), 14);
+                  const boxH = fontPx * 1.3;
+                  return (
+                    <input
+                      key={`${pageIndex}-${i}`}
+                      value={values[f.name] ?? ''}
+                      onChange={(e) => setValues((v) => ({ ...v, [f.name]: e.target.value }))}
+                      className="absolute box-border bg-yellow-100/25 text-gray-900 outline-none focus:bg-yellow-100/70 focus:ring-1"
+                      style={{
+                        left: f.xPct * size.width,
+                        top: lineY - boxH,
+                        width: f.wPct * size.width,
+                        height: boxH,
+                        fontSize: fontPx,
+                        lineHeight: `${boxH}px`,
+                        padding: '0 2px',
+                      }}
+                    />
+                  );
+                })()
               ),
             )}
           </div>
