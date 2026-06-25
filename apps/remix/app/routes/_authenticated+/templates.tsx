@@ -1087,17 +1087,29 @@ function TemplateCard({ t }: { t: Template }) {
   );
 }
 
-// The Tenants Bill of Rights ships in many languages — collapse them into one
-// card with a language dropdown instead of 18 separate cards.
-const TBOR_RE = /^Tenants Bill of Rights — (.+) \(MREC\)$/;
+// Forms that ship in multiple languages (same form named "… — <Language>") are
+// collapsed into one card with a language dropdown instead of N separate cards.
+// Generic: works for any form, not just the Tenants Bill of Rights.
+const LANG_RE =
+  / — (English|Spanish|French|Chinese|Arabic|Vietnamese|Korean|Tagalog|Russian|Haitian Creole|Amharic|Burmese|Dari|Pashto|Swahili|Tigrinya|Ukrainian|Urdu|Portuguese|Hindi|Japanese|German|Italian|Polish|Farsi|Nepali|Somali)(\s*\([^)]*\))?\s*$/;
 
-function LanguagePickerCard({ items }: { items: Template[] }) {
+function languageOf(name: string): { base: string; lang: string } | null {
+  const m = LANG_RE.exec(name);
+  if (!m) return null;
+  // Re-attach any trailing "(SUFFIX)" so all languages of a form share a base.
+  const base = (name.slice(0, m.index) + (m[2] ?? '')).trim();
+  return { base, lang: m[1] };
+}
+
+function LanguagePickerCard({ base, items }: { base: string; items: Template[] }) {
   const langs = items
-    .map((t) => ({ lang: TBOR_RE.exec(t.name)?.[1] ?? t.name, file: t.file }))
+    .map((t) => ({ lang: languageOf(t.name)?.lang ?? t.name, file: t.file }))
     .sort((a, b) =>
       a.lang === 'English' ? -1 : b.lang === 'English' ? 1 : a.lang.localeCompare(b.lang),
     );
   const [file, setFile] = useState(langs[0]?.file ?? '');
+  const title = base.replace(/\s*\([^)]*\)\s*$/, '');
+  const badge = items[0]?.badge ?? '';
 
   return (
     <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-5 transition-shadow hover:shadow-md">
@@ -1106,13 +1118,13 @@ function LanguagePickerCard({ items }: { items: Template[] }) {
           className="rounded-full px-2.5 py-0.5 text-xs font-semibold text-white"
           style={{ backgroundColor: INK }}
         >
-          MD
+          {badge}
         </span>
         <span className="text-xs text-gray-400">{langs.length} languages</span>
       </div>
-      <h3 className="text-base font-semibold text-gray-900">Tenants Bill of Rights</h3>
+      <h3 className="text-base font-semibold text-gray-900">{title}</h3>
       <p className="mt-1 flex-1 text-sm text-gray-500">
-        Maryland Real Estate Commission &mdash; pick a language and the form opens.
+        Available in {langs.length} languages &mdash; pick one and the form opens.
       </p>
       <label className="mb-1 mt-3 block text-xs font-medium" style={{ color: INK }}>
         Language
@@ -1154,6 +1166,27 @@ export default function TemplatesPage() {
 
   const openLabel = FOLDERS.find((f) => f.id === openFolder)?.label ?? '';
   const folderTemplates = TEMPLATES.filter((t) => t.folder === openFolder);
+
+  // Collapse any multi-language form into a single picker card; everything else
+  // (including a form that happens to have just one language) renders normally.
+  const folderSingles: Template[] = [];
+  const langGroups = new Map<string, Template[]>();
+  for (const t of folderTemplates) {
+    const v = languageOf(t.name);
+    if (v) {
+      langGroups.set(v.base, [...(langGroups.get(v.base) ?? []), t]);
+    } else {
+      folderSingles.push(t);
+    }
+  }
+  const langPickers: { base: string; items: Template[] }[] = [];
+  for (const [base, items] of langGroups) {
+    if (items.length >= 2) {
+      langPickers.push({ base, items });
+    } else {
+      folderSingles.push(...items);
+    }
+  }
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
@@ -1240,14 +1273,12 @@ export default function TemplatesPage() {
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {folderTemplates
-                .filter((t) => !TBOR_RE.test(t.name))
-                .map((t) => (
-                  <TemplateCard key={t.file} t={t} />
-                ))}
-              {folderTemplates.some((t) => TBOR_RE.test(t.name)) && (
-                <LanguagePickerCard items={folderTemplates.filter((t) => TBOR_RE.test(t.name))} />
-              )}
+              {folderSingles.map((t) => (
+                <TemplateCard key={t.file} t={t} />
+              ))}
+              {langPickers.map((p) => (
+                <LanguagePickerCard key={p.base} base={p.base} items={p.items} />
+              ))}
             </div>
           )}
         </>
