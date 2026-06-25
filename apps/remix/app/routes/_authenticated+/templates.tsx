@@ -533,7 +533,7 @@ const TEMPLATES: Template[] = [
     file: 'de-addendum-to-agreement-of-sale.pdf',
     badge: 'DE',
     pages: 1,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
   {
@@ -541,7 +541,7 @@ const TEMPLATES: Template[] = [
     file: 'de-addendum-to-backup-agreement-of-sale.pdf',
     badge: 'DE',
     pages: 13,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
   {
@@ -550,7 +550,7 @@ const TEMPLATES: Template[] = [
     badge: 'DE',
     pages: 8,
     fillable: true,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
   {
@@ -558,7 +558,7 @@ const TEMPLATES: Template[] = [
     file: 'de-amendment-to-exclusive-right-to-sell-listing-a.pdf',
     badge: 'DE',
     pages: 2,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
   {
@@ -566,7 +566,7 @@ const TEMPLATES: Template[] = [
     file: 'de-appraisal-gap-addendum.pdf',
     badge: 'DE',
     pages: 7,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
   {
@@ -574,7 +574,7 @@ const TEMPLATES: Template[] = [
     file: 'de-what-is-bright-mls-mls-disclosure.pdf',
     badge: 'DE',
     pages: 6,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
   {
@@ -582,7 +582,7 @@ const TEMPLATES: Template[] = [
     file: 'de-broker-to-broker-referral-agreement.pdf',
     badge: 'DE',
     pages: 9,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
   {
@@ -590,7 +590,7 @@ const TEMPLATES: Template[] = [
     file: 'de-contingency-waiver-offer-acknowledgement.pdf',
     badge: 'DE',
     pages: 2,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
   {
@@ -598,7 +598,7 @@ const TEMPLATES: Template[] = [
     file: 'de-covid-19-related-delay-addendum.pdf',
     badge: 'DE',
     pages: 2,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
   {
@@ -606,7 +606,7 @@ const TEMPLATES: Template[] = [
     file: 'de-covid-19-release-hold-harmless-agreement.pdf',
     badge: 'DE',
     pages: 3,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
   {
@@ -614,7 +614,7 @@ const TEMPLATES: Template[] = [
     file: 'de-ducioa-resale-certification.pdf',
     badge: 'DE',
     pages: 3,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
   {
@@ -622,7 +622,7 @@ const TEMPLATES: Template[] = [
     file: 'de-due-diligence-addendum.pdf',
     badge: 'DE',
     pages: 1,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
   {
@@ -630,7 +630,7 @@ const TEMPLATES: Template[] = [
     file: 'de-entry-agreement.pdf',
     badge: 'DE',
     pages: 2,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
   {
@@ -638,7 +638,7 @@ const TEMPLATES: Template[] = [
     file: 'de-escalation-clause-addendum.pdf',
     badge: 'DE',
     pages: 2,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
   {
@@ -647,7 +647,7 @@ const TEMPLATES: Template[] = [
     badge: 'DE',
     pages: 4,
     fillable: true,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
   {
@@ -656,7 +656,7 @@ const TEMPLATES: Template[] = [
     badge: 'DE',
     pages: 15,
     fillable: true,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
   {
@@ -664,7 +664,7 @@ const TEMPLATES: Template[] = [
     file: 'de-delaware-form-rew-est-real-estate-tax-return.pdf',
     badge: 'DE',
     pages: 2,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
   {
@@ -672,7 +672,7 @@ const TEMPLATES: Template[] = [
     file: 'de-delaware-residential-landlord-tenant-code-summ.pdf',
     badge: 'DE',
     pages: 10,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
   {
@@ -680,7 +680,7 @@ const TEMPLATES: Template[] = [
     file: 'de-reservation-of-rights-addendum.pdf',
     badge: 'DE',
     pages: 2,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
   {
@@ -688,7 +688,7 @@ const TEMPLATES: Template[] = [
     file: 'de-disclosure-of-information-on-lead-based-paint.pdf',
     badge: 'DE',
     pages: 3,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
   {
@@ -696,7 +696,7 @@ const TEMPLATES: Template[] = [
     file: 'de-modification-to-exclusive-right-to-sell-listin.pdf',
     badge: 'DE',
     pages: 2,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
   {
@@ -704,7 +704,7 @@ const TEMPLATES: Template[] = [
     file: 'de-must-sell-addendum.pdf',
     badge: 'DE',
     pages: 3,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
   {
@@ -712,7 +712,7 @@ const TEMPLATES: Template[] = [
     file: 'de-mutual-release-from-agreement-of-sale.pdf',
     badge: 'DE',
     pages: 1,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
   {
@@ -720,7 +720,7 @@ const TEMPLATES: Template[] = [
     file: 'de-pet-addendum.pdf',
     badge: 'DE',
     pages: 1,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
   {
@@ -728,7 +728,7 @@ const TEMPLATES: Template[] = [
     file: 'de-pre-settlement-inspection-acknowledgement.pdf',
     badge: 'DE',
     pages: 1,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
   {
@@ -736,7 +736,7 @@ const TEMPLATES: Template[] = [
     file: 'de-protect-your-family-from-lead-in-your-home.pdf',
     badge: 'EPA',
     pages: 20,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'EPA lead-paint disclosure booklet.',
   },
   {
@@ -744,7 +744,7 @@ const TEMPLATES: Template[] = [
     file: 'de-purchase-money-mortgage-addendum.pdf',
     badge: 'DE',
     pages: 3,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
   {
@@ -752,7 +752,7 @@ const TEMPLATES: Template[] = [
     file: 'de-realtors-attorneys-data-sheet.pdf',
     badge: 'DE',
     pages: 1,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
   {
@@ -760,7 +760,7 @@ const TEMPLATES: Template[] = [
     file: 'de-repair-and-maintenance-agreement.pdf',
     badge: 'DE',
     pages: 2,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
   {
@@ -769,7 +769,7 @@ const TEMPLATES: Template[] = [
     badge: 'DE',
     pages: 6,
     fillable: true,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
   {
@@ -777,7 +777,7 @@ const TEMPLATES: Template[] = [
     file: 'de-seller-contribution-addendum.pdf',
     badge: 'DE',
     pages: 1,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
   {
@@ -785,7 +785,7 @@ const TEMPLATES: Template[] = [
     file: 'de-seller-s-disclosure-and-radon-disclosure-exemp.pdf',
     badge: 'DE',
     pages: 3,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
   {
@@ -793,7 +793,7 @@ const TEMPLATES: Template[] = [
     file: 'de-seller-s-disclosure-of-real-property-condition.pdf',
     badge: 'DE',
     pages: 10,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
   {
@@ -801,7 +801,7 @@ const TEMPLATES: Template[] = [
     file: 'de-seller-s-disclosure-of-real-property-condition.pdf',
     badge: 'DE',
     pages: 8,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
   {
@@ -809,7 +809,7 @@ const TEMPLATES: Template[] = [
     file: 'de-seller-s-disclosure-of-real-property-condition.pdf',
     badge: 'DE',
     pages: 6,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
   {
@@ -817,7 +817,7 @@ const TEMPLATES: Template[] = [
     file: 'de-seller-s-reaffirmation-of-seller-s-disclosure.pdf',
     badge: 'DE',
     pages: 3,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
   {
@@ -825,7 +825,7 @@ const TEMPLATES: Template[] = [
     file: 'de-short-sale-and-reo-acknowledgement.pdf',
     badge: 'DE',
     pages: 2,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
   {
@@ -833,7 +833,7 @@ const TEMPLATES: Template[] = [
     file: 'de-delaware-manufactured-home-lot-lease-tenant-ri.pdf',
     badge: 'DE',
     pages: 36,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
   {
@@ -841,7 +841,7 @@ const TEMPLATES: Template[] = [
     file: 'de-utility-addendum.pdf',
     badge: 'DE',
     pages: 2,
-    folder: 'de-interactive',
+    folder: 'dar',
     desc: 'Delaware Association of REALTORS form.',
   },
 ];
