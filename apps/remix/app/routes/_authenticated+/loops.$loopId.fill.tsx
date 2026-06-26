@@ -315,13 +315,14 @@ export default function FillContractPage() {
                 </button>
               ) : (
                 (() => {
-                  // Anchor the typed text on the form's line (the bottom of the
-                  // field box) with a font scaled to the line height, so values
-                  // sit on the blank instead of overlapping the label above or the
-                  // printed line below. Positioned in px off the rendered page size.
-                  const lineY = (f.yPct + f.hPct) * size.height;
-                  const fontPx = Math.min(Math.max(f.hPct * size.height * 0.9, 9), 14);
-                  const boxH = fontPx * 1.3;
+                  // Rest the value on the form's printed line. The AcroForm box
+                  // (yPct/hPct) sits slightly above the line, so drop the text down
+                  // by a fraction of the line height to land on it. The 0.55 nudge
+                  // is tunable. Positioned in px off the rendered page size.
+                  const widgetH = Math.max(f.hPct * size.height, 12);
+                  const fontPx = Math.min(Math.max(widgetH * 0.8, 8.5), 13);
+                  const boxH = fontPx * 1.2;
+                  const lineY = (f.yPct + f.hPct) * size.height + widgetH * 0.55;
                   return (
                     <input
                       key={`${pageIndex}-${i}`}
