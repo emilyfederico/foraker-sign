@@ -97,10 +97,15 @@ export function ContractChat() {
     scrollToBottom();
 
     try {
+      // Send the prior turns so the assistant remembers earlier answers and
+      // doesn't re-ask for details already given.
+      const history = messages
+        .filter((m) => m.text)
+        .map((m) => ({ role: m.role, content: m.text }));
       const res = await fetch('/api/chat-contract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({ message: text, history }),
       });
       const data = (await res.json()) as { reply?: string; url?: string; documentId?: number };
       setMessages((prev) => [

@@ -214,7 +214,10 @@ export async function action({ request }: { request: Request }) {
     );
   }
 
-  let body: { message?: string };
+  let body: {
+    message?: string;
+    history?: { role?: string; content?: string }[];
+  };
   try {
     body = await request.json();
   } catch {
@@ -226,6 +229,20 @@ export async function action({ request }: { request: Request }) {
     return Response.json({ reply: 'Tell me what contract to create.' }, { status: 200 });
   }
 
+  // Build the full conversation so the model remembers earlier answers — the chat
+  // is otherwise stateless and would re-ask for details already given. The
+  // Anthropic API requires the first message to be from the user.
+  const conversation: { role: 'user' | 'assistant'; content: string }[] = [
+    ...(Array.isArray(body.history) ? body.history : []).map((h) => ({
+      role: h.role === 'assistant' ? ('assistant' as const) : ('user' as const),
+      content: String(h.content ?? '').trim(),
+    })),
+    { role: 'user' as const, content: message },
+  ].filter((t) => t.content);
+  while (conversation.length > 1 && conversation[0].role !== 'user') {
+    conversation.shift();
+  }
+
   const anthropic = new Anthropic({ apiKey });
 
   // 1. Parse the free-text request into structured fields.
@@ -235,15 +252,17 @@ export async function action({ request }: { request: Request }) {
       model: 'claude-opus-4-8',
       max_tokens: 1024,
       system:
-        "You extract real-estate contract requests. Given a realtor's message, return the " +
-        'contract state (PA, MD, or DE), property street address, buyer name, and buyer email; ' +
-        'plus the deal terms when stated: purchase price (dollars), financing type ' +
-        '(cash/conventional/fha/va/usda), down payment, days to settlement, whether the property ' +
-        'has a septic system or a well, whether a home inspection is elected, and whether this is ' +
-        "the agent's first deal with this buyer. Use the empty string for unstated text/enum " +
+        'You extract real-estate contract requests from the conversation so far. Combine ALL ' +
+        'information the realtor has given across every message and return the contract state ' +
+        '(PA, MD, or DE), property street address, buyer name, and buyer email; plus the deal ' +
+        'terms when stated: purchase price (dollars), financing type (cash/conventional/fha/va/' +
+        'usda), down payment, days to settlement, whether the property has a septic system or a ' +
+        'well, whether a home inspection is elected, and whether this is the agent’s first ' +
+        'deal with this buyer. A short reply like "DE" or "Jacob Arnberger" answers the most ' +
+        'recent question — apply it accordingly. Use the empty string for unstated text/enum ' +
         'fields and 0 for unstated numbers. Do not invent values.',
       output_config: { format: { type: 'json_schema', schema: EXTRACTION_SCHEMA } },
-      messages: [{ role: 'user', content: message }],
+      messages: conversation,
     });
 
     const text = completion.content.find((b) => b.type === 'text');
