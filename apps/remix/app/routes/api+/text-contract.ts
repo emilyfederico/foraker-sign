@@ -1,8 +1,9 @@
-import { DocumentStatus, EnvelopeType } from '@prisma/client';
+import { DocumentStatus, EnvelopeType, FieldType } from '@prisma/client';
 
 import { getSession } from '@documenso/auth/server/lib/utils/get-session';
 import { sendDocument } from '@documenso/lib/server-only/document/send-document';
 import { getEnvelopeWhereInput } from '@documenso/lib/server-only/envelope/get-envelope-by-id';
+import { createEnvelopeFields } from '@documenso/lib/server-only/field/create-envelope-fields';
 import { extractRequestMetadata } from '@documenso/lib/universal/extract-request-metadata';
 import { formatSigningLink } from '@documenso/lib/utils/recipients';
 import { prisma } from '@documenso/prisma';
@@ -65,7 +66,10 @@ export async function action({ request }: { request: Request }) {
     where: envelopeWhereInput,
     select: {
       status: true,
-      recipients: { select: { token: true }, orderBy: { id: 'asc' } },
+      recipients: {
+        select: { id: true, token: true, fields: { select: { id: true } } },
+        orderBy: { id: 'asc' },
+      },
     },
   });
   if (!envelope) {
@@ -74,6 +78,40 @@ export async function action({ request }: { request: Request }) {
   const signer = envelope.recipients[0];
   if (!signer) {
     return Response.json({ ok: false, error: 'This contract has no signer to text.' });
+  }
+
+  // Documenso won't send a document whose signer has no field, and the generated
+  // contracts don't place one — so add a signature field for the signer when they
+  // have none (idempotent). Placed on page 1; exact per-form placement is a follow-up.
+  if (signer.fields.length === 0) {
+    try {
+      await createEnvelopeFields({
+        userId,
+        teamId: team.id,
+        id: { type: 'documentId', id: documentId },
+        fields: [
+          {
+            type: FieldType.SIGNATURE,
+            recipientId: signer.id,
+            page: 1,
+            positionX: 8,
+            positionY: 82,
+            width: 32,
+            height: 5,
+          },
+        ],
+        requestMetadata: {
+          source: 'app',
+          auth: 'session',
+          requestMetadata: extractRequestMetadata(request),
+        },
+      });
+    } catch (err) {
+      return Response.json({
+        ok: false,
+        error: `Couldn't add a signature field: ${err instanceof Error ? err.message : String(err)}`,
+      });
+    }
   }
 
   // Make the signing link live without emailing — the text is the delivery.
