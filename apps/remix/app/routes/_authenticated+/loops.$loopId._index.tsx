@@ -1,7 +1,11 @@
+import { useState } from 'react';
+
 import { Link, isRouteErrorResponse, useLoaderData, useRouteError } from 'react-router';
 
 import { getSession } from '@documenso/auth/server/lib/utils/get-session';
 import { prisma } from '@documenso/prisma';
+
+import { TemplateLibraryDialog } from '~/components/general/template-library-dialog';
 
 const INK = '#262626';
 
@@ -69,27 +73,41 @@ function DropZone({
   title,
   description,
   icon,
+  onClick,
 }: {
   title: string;
   description: string;
   icon: React.ReactNode;
+  onClick?: () => void;
 }) {
-  return (
-    <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 px-6 py-10 text-center">
+  const content = (
+    <>
       <div style={{ color: INK }}>{icon}</div>
       <p className="mt-3 text-sm font-semibold" style={{ color: INK }}>
         {title}
       </p>
       <p className="mt-1 text-xs text-gray-400">{description}</p>
-    </div>
+    </>
   );
+  const base =
+    'flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 px-6 py-10 text-center';
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={`${base} transition-colors hover:border-gray-400 hover:bg-gray-50`}>
+        {content}
+      </button>
+    );
+  }
+  return <div className={base}>{content}</div>;
 }
 
 export default function LoopDetailPage() {
   const { loop } = useLoaderData() as { loop: Loop };
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">
+      <TemplateLibraryDialog open={pickerOpen} onClose={() => setPickerOpen(false)} />
       <div className="mb-4 flex items-center justify-between text-sm">
         <Link to="/loops" className="font-semibold" style={{ color: INK }}>
           ‹ BACK TO MY LOOPS
@@ -145,6 +163,7 @@ export default function LoopDetailPage() {
           <DropZone
             title="TEMPLATES"
             description="Add a live form by selecting from templates."
+            onClick={() => setPickerOpen(true)}
             icon={
               <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
