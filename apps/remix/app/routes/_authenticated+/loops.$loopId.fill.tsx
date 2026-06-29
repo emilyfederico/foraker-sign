@@ -315,14 +315,22 @@ export default function FillContractPage() {
                 </button>
               ) : (
                 (() => {
-                  // Rest the value on the form's printed line. The AcroForm box
-                  // (yPct/hPct) sits slightly above the line, so drop the text down
-                  // by a fraction of the line height to land on it. The 0.55 nudge
-                  // is tunable. Positioned in px off the rendered page size.
+                  // The AcroForm box bottom coincides with the form's printed
+                  // fill-in line, so anchor the typed value's BASELINE to rest just
+                  // on that line — level with the printed label beside it, never
+                  // floating above it or dropping onto the next row.
+                  //
+                  // A single-line input (height == line-height) vertically centers
+                  // its text. With the system-ui font (ascent ≈ 1.0em, descent ≈
+                  // 0.231em) the baseline lands at
+                  //   top + (boxH - 1.231 * fontPx) / 2 + fontPx
+                  // so we solve `top` to put the baseline 1px above the line.
                   const widgetH = Math.max(f.hPct * size.height, 12);
-                  const fontPx = Math.min(Math.max(widgetH * 0.8, 8.5), 13);
-                  const boxH = fontPx * 1.2;
-                  const lineY = (f.yPct + f.hPct) * size.height + widgetH * 0.55;
+                  const fontPx = Math.min(Math.max(widgetH * 0.85, 9), 13);
+                  const boxH = fontPx * 1.3;
+                  const line = (f.yPct + f.hPct) * size.height;
+                  const baselineFromTop = (boxH - 1.231 * fontPx) / 2 + fontPx;
+                  const top = line - 1 - baselineFromTop;
                   return (
                     <input
                       key={`${pageIndex}-${i}`}
@@ -331,7 +339,7 @@ export default function FillContractPage() {
                       className="absolute box-border bg-yellow-100/25 text-gray-900 outline-none focus:bg-yellow-100/70 focus:ring-1"
                       style={{
                         left: f.xPct * size.width,
-                        top: lineY - boxH,
+                        top,
                         width: f.wPct * size.width,
                         height: boxH,
                         fontSize: fontPx,
