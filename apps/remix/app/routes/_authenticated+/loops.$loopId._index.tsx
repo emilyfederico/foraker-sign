@@ -1,11 +1,9 @@
-import { useState } from 'react';
-
 import { Link, isRouteErrorResponse, useLoaderData, useRouteError } from 'react-router';
 
 import { getSession } from '@documenso/auth/server/lib/utils/get-session';
 import { prisma } from '@documenso/prisma';
 
-import { TemplateLibraryDialog } from '~/components/general/template-library-dialog';
+import { TemplateFolderBrowser } from '~/components/general/template-folder-browser';
 
 const INK = '#262626';
 
@@ -69,45 +67,11 @@ type Loop = {
   sentAt: string | null;
 };
 
-function DropZone({
-  title,
-  description,
-  icon,
-  onClick,
-}: {
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-  onClick?: () => void;
-}) {
-  const content = (
-    <>
-      <div style={{ color: INK }}>{icon}</div>
-      <p className="mt-3 text-sm font-semibold" style={{ color: INK }}>
-        {title}
-      </p>
-      <p className="mt-1 text-xs text-gray-400">{description}</p>
-    </>
-  );
-  const base =
-    'flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 px-6 py-10 text-center';
-  if (onClick) {
-    return (
-      <button type="button" onClick={onClick} className={`${base} transition-colors hover:border-gray-400 hover:bg-gray-50`}>
-        {content}
-      </button>
-    );
-  }
-  return <div className={base}>{content}</div>;
-}
-
 export default function LoopDetailPage() {
   const { loop } = useLoaderData() as { loop: Loop };
-  const [pickerOpen, setPickerOpen] = useState(false);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">
-      <TemplateLibraryDialog open={pickerOpen} onClose={() => setPickerOpen(false)} />
       <div className="mb-4 flex items-center justify-between text-sm">
         <Link to="/loops" className="font-semibold" style={{ color: INK }}>
           ‹ BACK TO MY LOOPS
@@ -154,56 +118,9 @@ export default function LoopDetailPage() {
             ADD FOLDER
           </span>
         </div>
-        <p className="mb-6 text-sm text-gray-400">Anything you add is private until shared.</p>
+        <p className="mb-5 text-sm text-gray-400">Anything you add is private until shared.</p>
 
-        <p className="mb-2 text-center text-xs font-medium tracking-wide text-gray-400">
-          DRAG &amp; DROP FILES HERE
-        </p>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <DropZone
-            title="TEMPLATES"
-            description="Add a live form by selecting from templates."
-            onClick={() => setPickerOpen(true)}
-            icon={
-              <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                />
-              </svg>
-            }
-          />
-          <DropZone
-            title="BROWSE"
-            description="Search and add any PDF from your computer into this folder."
-            icon={
-              <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
-            }
-          />
-          <DropZone
-            title="EMAIL"
-            description="Attach the files you need to an email and send them directly into this folder."
-            icon={
-              <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                />
-              </svg>
-            }
-          />
-        </div>
+        <TemplateFolderBrowser />
       </div>
     </div>
   );
