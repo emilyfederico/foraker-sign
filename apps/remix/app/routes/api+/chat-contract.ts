@@ -3,14 +3,10 @@ import Anthropic from '@anthropic-ai/sdk';
 import { getSession } from '@documenso/auth/server/lib/utils/get-session';
 import { prisma } from '@documenso/prisma';
 
-import { generateContractDocument } from '~/utils/contract-generation.server';
-import {
-  type FinancingType,
-  type StateCode,
-  computeDeal,
-  formatMdy,
-  formatUsd,
-} from '~/utils/deal-rules';
+import { formValuesForState } from '~/utils/contract-generation.server';
+import { type FinancingType, type StateCode, computeDeal } from '~/utils/deal-rules';
+
+const WEBAPP_URL = process.env.NEXT_PUBLIC_WEBAPP_URL ?? 'https://sign.foraker.ai';
 
 // Valid contract states (the contract is generated into the logged-in agent's
 // own workspace by generateContractDocument).
@@ -327,94 +323,74 @@ export async function action({ request }: { request: Request }) {
     );
   }
 
-  // 3. Look up the property.
+  // 3. Look up the property to enrich the loop (city/county/price). Optional — a
+  //    realtor can start a contract for an address not yet synced from MLS.
   const property = await findProperty(parsed.address);
-  if (!property) {
-    return Response.json(
-      {
-        reply: `I couldn't find a listing matching "${parsed.address}". Double-check the address or import it first.`,
-      },
-      { status: 200 },
-    );
-  }
+  const address = property?.address ?? parsed.address;
+  const city = String((property as { city?: unknown } | null)?.city ?? '');
+  const county = String((property as { county?: unknown } | null)?.county ?? '');
+  const price =
+    parsed.purchasePrice || Number((property as { price?: unknown } | null)?.price) || 0;
 
-  // 4. Need an email to send for signature.
-  if (!parsed.buyerEmail) {
-    return Response.json(
-      {
-        reply: `Found ${property.address} in ${property.city}. What's ${parsed.buyerName}'s email so I can send the contract?`,
-      },
-      { status: 200 },
-    );
-  }
-
-  // 5. Build the deal terms (defaults fill anything unstated) and generate the
-  //    contract in the logged-in agent's own workspace.
+  // 4. Seed the contract field values from everything stated so far so the Fill
+  //    page opens pre-filled. Deal-rule defaults (earnest money, settlement date,
+  //    loan amount, mortgage-commitment date) are derived when a price is known.
   const financing: FinancingType = parsed.financing || 'conventional';
-  const electHomeInspection = parsed.electHomeInspection !== 'no';
-  const downPayment = parsed.downPayment || undefined;
-  const settlementDays = parsed.settlementDays || undefined;
-  const hasSeptic = parsed.hasSeptic === 'yes';
-  const hasWell = parsed.hasWell === 'yes';
-  const firstDealWithBuyer = parsed.firstDeal === 'yes';
+  const computed =
+    price > 0
+      ? computeDeal({
+          price,
+          financing,
+          downPayment: parsed.downPayment || undefined,
+          settlementDays: parsed.settlementDays || undefined,
+          state: parsed.state as StateCode,
+          electHomeInspection: parsed.electHomeInspection !== 'no',
+          hasSeptic: parsed.hasSeptic === 'yes',
+          hasWell: parsed.hasWell === 'yes',
+          sellerContribution: false,
+          saleContingency: false,
+          firstDealWithBuyer: parsed.firstDeal === 'yes',
+        })
+      : undefined;
 
-  const propertyForContract: Record<string, unknown> = {
-    ...(property as unknown as Record<string, unknown>),
-    price: parsed.purchasePrice || (property as { price?: unknown }).price,
-  };
+  const fieldValues = formValuesForState(
+    parsed.state,
+    { address, city, county, price },
+    parsed.buyerName,
+    computed,
+  );
 
-  const result = await generateContractDocument({
-    userId,
-    state: parsed.state,
-    property: propertyForContract,
-    buyerName: parsed.buyerName,
-    buyerEmail: parsed.buyerEmail,
-    request,
-    financing,
-    downPayment,
-    settlementDays,
-    electHomeInspection,
-    hasSeptic,
-    hasWell,
-    firstDealWithBuyer,
-  });
-
-  if ('error' in result) {
-    return Response.json({ reply: `Something went wrong: ${result.error}` }, { status: 200 });
-  }
-
-  // Restate the price and the rule-derived defaults so the agent can confirm.
-  const priceNum = Number(propertyForContract.price) || 0;
-  let summary = '';
-  if (priceNum > 0) {
-    const cd = computeDeal({
-      price: priceNum,
-      financing,
-      downPayment,
-      settlementDays,
-      state: parsed.state as StateCode,
-      electHomeInspection,
-      hasSeptic,
-      hasWell,
-      sellerContribution: false,
-      saleContingency: false,
-      firstDealWithBuyer,
+  // 5. Create the loop in the agent's workspace and point them at the fillable
+  //    contract. The buyer email is optional here — it's confirmed when sending.
+  let loopId: string;
+  try {
+    const loop = await prisma.transaction.create({
+      data: {
+        userId,
+        address,
+        city: city || null,
+        state: parsed.state,
+        price: price || null,
+        transactionType: 'PURCHASE',
+        buyerName: parsed.buyerName,
+        buyerEmail: parsed.buyerEmail || null,
+        fieldValues,
+      },
     });
-    const loanPart =
-      financing === 'cash'
-        ? 'cash (financing & appraisal contingencies waived)'
-        : `${financing}, loan ${formatUsd(cd.loanAmount)}`;
-    summary =
-      ` Price ${formatUsd(priceNum)}, earnest money ${formatUsd(cd.earnestMoney)} (1%),` +
-      ` settlement ${formatMdy(cd.settlementDate)}, ${loanPart}.` +
-      (cd.addenda.length ? ` ${cd.addenda.length} addenda flagged.` : '') +
-      ' Review and adjust anything before sending.';
+    loopId = loop.id;
+  } catch (err) {
+    console.error('Loop creation error:', err);
+    return Response.json(
+      { reply: 'I couldn’t create the contract just now — please try again.' },
+      { status: 200 },
+    );
   }
 
+  const where = `${address}${city ? `, ${city}` : ''}`;
   return Response.json({
-    reply: `Done — created a ${parsed.state} contract for ${property.address} with buyer ${parsed.buyerName}.${summary}`,
-    url: result.url,
-    documentId: result.documentId,
+    reply: `Done — I set up a ${parsed.state} contract for ${where}, buyer ${parsed.buyerName}. Open it to review, fill in anything blank, then text it to the buyer to sign.`,
+    loopId,
+    url: `${WEBAPP_URL}/loops/${loopId}/fill`,
   });
 }
 

@@ -62,6 +62,7 @@ type Loop = {
   price: number | null;
   beds: number | null;
   transactionType: string;
+  sentAt: string | null;
 };
 
 function DropZone({
@@ -100,7 +101,14 @@ export default function LoopDetailPage() {
 
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">{loop.address}</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold text-gray-900">{loop.address}</h1>
+            {loop.sentAt && (
+              <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+                ✓ Texted to buyer
+              </span>
+            )}
+          </div>
           <div className="mt-1 flex items-center gap-4 text-sm">
             <span className="font-semibold tracking-wide" style={{ color: INK }}>
               {(TYPE_LABELS[loop.transactionType] ?? loop.transactionType).toUpperCase()}
@@ -117,7 +125,7 @@ export default function LoopDetailPage() {
           className="shrink-0 rounded-lg px-5 py-2.5 text-sm font-semibold text-white"
           style={{ backgroundColor: '#262626' }}
         >
-          Fill out contract →
+          {loop.sentAt ? 'Open contract →' : 'Fill out contract →'}
         </Link>
       </div>
 

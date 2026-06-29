@@ -1168,8 +1168,18 @@ model Transaction {
   // Owning agent (User.id). Loops are private to the agent who created them.
   userId Int?
 
+  // Buyer details captured by the chat box when the loop is created, used to
+  // pre-fill the contract and to address the "Send to buyer" signing request.
+  buyerName  String?
+  buyerEmail String?
+
   // Filled contract field values (AcroForm field name -> value) from the Fill view.
   fieldValues Json?
+
+  // Set once the agent clicks "Send to buyer": the Documenso document the buyer
+  // was sent for signature, and when. Used to show "Sent" state and a link.
+  sentDocumentId Int?
+  sentAt         DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

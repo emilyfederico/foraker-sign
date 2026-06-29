@@ -138,6 +138,7 @@ type Loop = {
   transactionType: string;
   photoUrl: string | null;
   createdAt: string;
+  sentAt: string | null;
 };
 
 // dotloop-style friendly house illustrations (a few variants, picked per loop).
@@ -635,7 +636,11 @@ export default function LoopsPage() {
                       </div>
                       <div>
                         <span className="text-gray-400">Status: </span>
-                        <span className="font-medium text-gray-700">None</span>
+                        {loop.sentAt ? (
+                          <span className="font-semibold text-green-600">Texted to buyer</span>
+                        ) : (
+                          <span className="font-medium text-gray-700">Draft</span>
+                        )}
                       </div>
                       <div>
                         <span className="text-gray-400">{priceLabel}: </span>
