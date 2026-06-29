@@ -4,7 +4,18 @@ import { getSession } from '@documenso/auth/server/lib/utils/get-session';
 import { prisma } from '@documenso/prisma';
 
 import { formValuesForState } from '~/utils/contract-generation.server';
-import { type FinancingType, type StateCode, computeDeal } from '~/utils/deal-rules';
+import {
+  type FinancingType,
+  type StateCode,
+  computeDeal,
+  formatMdy,
+  formatUsd,
+} from '~/utils/deal-rules';
+
+// A recognizable phrase embedded in the consolidated deal-terms question so we
+// can tell, on the next stateless turn, that we've already asked it once (and
+// shouldn't loop on it — we generate with sensible defaults after one round).
+const DEAL_TERMS_MARKER = 'a few details before I build it:';
 
 const WEBAPP_URL = process.env.NEXT_PUBLIC_WEBAPP_URL ?? 'https://sign.foraker.ai';
 
@@ -18,6 +29,7 @@ const VALID_STATES = new Set(['MD', 'DE', 'PA']);
 type ParsedRequest = {
   state: 'PA' | 'MD' | 'DE' | '';
   address: string;
+  county: string;
   buyerName: string;
   buyerEmail: string;
   purchasePrice: number;
@@ -42,6 +54,11 @@ const EXTRACTION_SCHEMA = {
       type: 'string',
       description:
         'The street address of the property as stated (e.g. "123 Memorial Drive"). Empty string if not stated.',
+    },
+    county: {
+      type: 'string',
+      description:
+        'The county the property is in, if stated (important for DE: New Castle, Kent, or Sussex). Empty string if not stated.',
     },
     buyerName: {
       type: 'string',
@@ -96,6 +113,7 @@ const EXTRACTION_SCHEMA = {
   required: [
     'state',
     'address',
+    'county',
     'buyerName',
     'buyerEmail',
     'purchasePrice',
@@ -248,15 +266,20 @@ export async function action({ request }: { request: Request }) {
       model: 'claude-opus-4-8',
       max_tokens: 1024,
       system:
-        'You extract real-estate contract requests from the conversation so far. Combine ALL ' +
-        'information the realtor has given across every message and return the contract state ' +
-        '(PA, MD, or DE), property street address, buyer name, and buyer email; plus the deal ' +
-        'terms when stated: purchase price (dollars), financing type (cash/conventional/fha/va/' +
-        'usda), down payment, days to settlement, whether the property has a septic system or a ' +
-        'well, whether a home inspection is elected, and whether this is the agent’s first ' +
-        'deal with this buyer. A short reply like "DE" or "Jacob Arnberger" answers the most ' +
-        'recent question — apply it accordingly. Use the empty string for unstated text/enum ' +
-        'fields and 0 for unstated numbers. Do not invent values.',
+        'You are a real-estate contract intake assistant for a PA/MD/DE brokerage. Read the ' +
+        'ENTIRE conversation and extract the deal into the schema, combining everything the ' +
+        'realtor has said across all messages. ' +
+        'Detect the STATE from the property address when possible (city, state, or ZIP) — e.g. ' +
+        'an address in Dover, DE -> DE; Pittsburgh, PA -> PA. ' +
+        'Capture the county if stated (important for DE: New Castle, Kent, Sussex). ' +
+        'Accept casual language: "cash deal" -> financing cash; "10k down" -> downPayment 10000; ' +
+        '"20% down" -> downPayment 0.2; "waive inspection" -> electHomeInspection no; ' +
+        '"settle in 45 days" -> settlementDays 45; "485k" -> purchasePrice 485000. ' +
+        'A short reply like "DE", "cash", "no septic", "first one", or "Jacob Arnberger" answers ' +
+        'the most recent question — apply it to the correct field. ' +
+        'Use the empty string for unstated text/enum fields and 0 for unstated numbers. NEVER ' +
+        'invent values: only set septic, well, financing, inspection, or first-deal when the ' +
+        'realtor actually says so — otherwise leave them empty.',
       output_config: { format: { type: 'json_schema', schema: EXTRACTION_SCHEMA } },
       messages: conversation,
     });
@@ -306,7 +329,7 @@ export async function action({ request }: { request: Request }) {
     );
   }
 
-  // 2. Validate we have enough to act on.
+  // 2. Hard requirements — ask for these one at a time (no contract without them).
   if (!parsed.state || !VALID_STATES.has(parsed.state)) {
     return Response.json(
       { reply: 'Which state is this contract for — PA, MD, or DE?' },
@@ -328,14 +351,48 @@ export async function action({ request }: { request: Request }) {
   const property = await findProperty(parsed.address);
   const address = property?.address ?? parsed.address;
   const city = String((property as { city?: unknown } | null)?.city ?? '');
-  const county = String((property as { county?: unknown } | null)?.county ?? '');
+  const county = String((property as { county?: unknown } | null)?.county ?? '') || parsed.county;
   const price =
     parsed.purchasePrice || Number((property as { price?: unknown } | null)?.price) || 0;
 
-  // 4. Seed the contract field values from everything stated so far so the Fill
-  //    page opens pre-filled. Deal-rule defaults (earnest money, settlement date,
-  //    loan amount, mortgage-commitment date) are derived when a price is known.
+  // 4. Interview the agent for the deal terms that drive the contract — but only
+  //    once. We don't ask for things that have firm defaults (deposit-due days,
+  //    inspection window, mortgage-commitment days, loan term) or that come from
+  //    MLS / another screen (parcel, listing agent, buyer phone & email). Empty
+  //    means "not stated yet"; the model never guesses these.
+  const alreadyAsked = conversation.some(
+    (m) => m.role === 'assistant' && m.content.includes(DEAL_TERMS_MARKER),
+  );
+  if (!alreadyAsked) {
+    const missing: string[] = [];
+    if (price <= 0) missing.push('the purchase price');
+    if (!parsed.financing)
+      missing.push('how the buyer is financing it (cash, conventional, FHA, VA, or USDA)');
+    if (parsed.state === 'DE' && !county) missing.push('the county (New Castle, Kent, or Sussex)');
+    if (!parsed.hasSeptic) missing.push('whether the property has a septic system');
+    if (!parsed.hasWell) missing.push('whether it has a well');
+    if (!parsed.electHomeInspection)
+      missing.push('whether to include a home inspection (I recommend keeping it)');
+    if (!parsed.firstDeal)
+      missing.push('whether this is your first deal with this buyer (adds the buyer-agency forms)');
+
+    if (missing.length > 0) {
+      const list =
+        missing.length === 1 ? missing[0] : missing.map((m, i) => `\n${i + 1}. ${m}`).join('');
+      return Response.json(
+        { reply: `Got it — just ${DEAL_TERMS_MARKER}${missing.length === 1 ? ' ' : ''}${list}` },
+        { status: 200 },
+      );
+    }
+  }
+
+  // 5. Seed the contract field values from everything gathered so the Fill page
+  //    opens pre-filled. Deal-rule defaults (1% earnest money, +30d settlement
+  //    bumped off weekends, loan = price − down payment, mortgage-commitment
+  //    date) are derived when a price is known. Anything the agent never answered
+  //    falls back to a sensible default (conventional financing, inspection kept).
   const financing: FinancingType = parsed.financing || 'conventional';
+  const electHomeInspection = parsed.electHomeInspection !== 'no';
   const computed =
     price > 0
       ? computeDeal({
@@ -344,7 +401,7 @@ export async function action({ request }: { request: Request }) {
           downPayment: parsed.downPayment || undefined,
           settlementDays: parsed.settlementDays || undefined,
           state: parsed.state as StateCode,
-          electHomeInspection: parsed.electHomeInspection !== 'no',
+          electHomeInspection,
           hasSeptic: parsed.hasSeptic === 'yes',
           hasWell: parsed.hasWell === 'yes',
           sellerContribution: false,
@@ -360,8 +417,8 @@ export async function action({ request }: { request: Request }) {
     computed,
   );
 
-  // 5. Create the loop in the agent's workspace and point them at the fillable
-  //    contract. The buyer email is optional here — it's confirmed when sending.
+  // 6. Create the loop in the agent's workspace and point them at the fillable
+  //    contract. The buyer email is optional here — delivery is by text later.
   let loopId: string;
   try {
     const loop = await prisma.transaction.create({
@@ -386,9 +443,21 @@ export async function action({ request }: { request: Request }) {
     );
   }
 
+  // Restate the price and rule-derived terms so the agent can confirm at a glance.
+  let summary = '';
+  if (computed && price > 0) {
+    const loanPart =
+      financing === 'cash'
+        ? 'cash (financing & appraisal contingencies waived)'
+        : `${financing}, loan ${formatUsd(computed.loanAmount)}`;
+    summary =
+      ` Price ${formatUsd(price)}, earnest money ${formatUsd(computed.earnestMoney)} (1%),` +
+      ` settlement ${formatMdy(computed.settlementDate)}, ${loanPart}.`;
+  }
+
   const where = `${address}${city ? `, ${city}` : ''}`;
   return Response.json({
-    reply: `Done — I set up a ${parsed.state} contract for ${where}, buyer ${parsed.buyerName}. Open it to review, fill in anything blank, then text it to the buyer to sign.`,
+    reply: `Done — I set up a ${parsed.state} contract for ${where}, buyer ${parsed.buyerName}.${summary} Open it to review, fill in anything blank, then text it to the buyer to sign.`,
     loopId,
     url: `${WEBAPP_URL}/loops/${loopId}/fill`,
   });
