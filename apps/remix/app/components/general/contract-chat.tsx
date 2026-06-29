@@ -1,9 +1,14 @@
 import { useRef, useState } from 'react';
 
+type Choice = { label: string; value: string };
+
 type ChatMessage = {
   role: 'user' | 'assistant';
   text: string;
   url?: string;
+  // Tap-to-answer options for a question (e.g. financing type, yes/no). Sending
+  // a choice posts its `value` as the agent's reply.
+  choices?: Choice[];
 };
 
 const GREETING: ChatMessage = {
@@ -24,12 +29,13 @@ export function ContractChat() {
     });
   }
 
-  async function send() {
-    const text = input.trim();
+  // `override` is set when the agent taps an answer choice instead of typing.
+  async function send(override?: string) {
+    const text = (override ?? input).trim();
     if (!text || sending) return;
 
     setMessages((prev) => [...prev, { role: 'user', text }]);
-    setInput('');
+    if (override === undefined) setInput('');
     setSending(true);
     scrollToBottom();
 
@@ -44,13 +50,14 @@ export function ContractChat() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text, history }),
       });
-      const data = (await res.json()) as { reply?: string; url?: string };
+      const data = (await res.json()) as { reply?: string; url?: string; choices?: Choice[] };
       setMessages((prev) => [
         ...prev,
         {
           role: 'assistant',
           text: data.reply ?? 'Sorry, something went wrong.',
           url: data.url,
+          choices: data.choices,
         },
       ]);
     } catch {
@@ -122,6 +129,22 @@ export function ContractChat() {
                     >
                       Open &amp; fill contract →
                     </a>
+                  )}
+                  {/* Tap-to-answer choices — only on the latest message so old
+                      questions don't keep stale buttons. */}
+                  {m.choices && i === messages.length - 1 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {m.choices.map((c) => (
+                        <button
+                          key={c.value}
+                          onClick={() => void send(c.value)}
+                          disabled={sending}
+                          className="rounded-full border border-[#262626] bg-white px-3 py-1 text-xs font-semibold text-[#262626] transition-colors hover:bg-[#262626] hover:text-white disabled:opacity-50"
+                        >
+                          {c.label}
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </div>
               </div>

@@ -12,11 +12,6 @@ import {
   formatUsd,
 } from '~/utils/deal-rules';
 
-// A recognizable phrase embedded in the consolidated deal-terms question so we
-// can tell, on the next stateless turn, that we've already asked it once (and
-// shouldn't loop on it — we generate with sensible defaults after one round).
-const DEAL_TERMS_MARKER = 'a few details before I build it:';
-
 const WEBAPP_URL = process.env.NEXT_PUBLIC_WEBAPP_URL ?? 'https://sign.foraker.ai';
 
 // Valid contract states (the contract is generated into the logged-in agent's
@@ -329,10 +324,18 @@ export async function action({ request }: { request: Request }) {
     );
   }
 
-  // 2. Hard requirements — ask for these one at a time (no contract without them).
+  // 2. Hard requirements — ask one at a time. State is a tap-to-choose question;
+  //    address and buyer name must be typed.
   if (!parsed.state || !VALID_STATES.has(parsed.state)) {
     return Response.json(
-      { reply: 'Which state is this contract for — PA, MD, or DE?' },
+      {
+        reply: 'Which state is this contract for?',
+        choices: [
+          { label: 'Pennsylvania', value: 'PA' },
+          { label: 'Maryland', value: 'MD' },
+          { label: 'Delaware', value: 'DE' },
+        ],
+      },
       { status: 200 },
     );
   }
@@ -355,35 +358,90 @@ export async function action({ request }: { request: Request }) {
   const price =
     parsed.purchasePrice || Number((property as { price?: unknown } | null)?.price) || 0;
 
-  // 4. Interview the agent for the deal terms that drive the contract — but only
-  //    once. We don't ask for things that have firm defaults (deposit-due days,
-  //    inspection window, mortgage-commitment days, loan term) or that come from
-  //    MLS / another screen (parcel, listing agent, buyer phone & email). Empty
-  //    means "not stated yet"; the model never guesses these.
-  const alreadyAsked = conversation.some(
-    (m) => m.role === 'assistant' && m.content.includes(DEAL_TERMS_MARKER),
-  );
-  if (!alreadyAsked) {
-    const missing: string[] = [];
-    if (price <= 0) missing.push('the purchase price');
-    if (!parsed.financing)
-      missing.push('how the buyer is financing it (cash, conventional, FHA, VA, or USDA)');
-    if (parsed.state === 'DE' && !county) missing.push('the county (New Castle, Kent, or Sussex)');
-    if (!parsed.hasSeptic) missing.push('whether the property has a septic system');
-    if (!parsed.hasWell) missing.push('whether it has a well');
-    if (!parsed.electHomeInspection)
-      missing.push('whether to include a home inspection (I recommend keeping it)');
-    if (!parsed.firstDeal)
-      missing.push('whether this is your first deal with this buyer (adds the buyer-agency forms)');
-
-    if (missing.length > 0) {
-      const list =
-        missing.length === 1 ? missing[0] : missing.map((m, i) => `\n${i + 1}. ${m}`).join('');
-      return Response.json(
-        { reply: `Got it — just ${DEAL_TERMS_MARKER}${missing.length === 1 ? ' ' : ''}${list}` },
-        { status: 200 },
-      );
-    }
+  // 4. Interview the agent for the deal terms — ONE question at a time, each with
+  //    clickable answer choices so they tap instead of type. Each answer maps to
+  //    a field; once answered we move to the next missing one. We never ask for
+  //    things with firm defaults (deposit-due days, inspection window, mortgage-
+  //    commitment days, loan term) or that come from MLS / another screen (parcel,
+  //    listing agent, buyer phone & email). Empty = "not stated yet".
+  if (!parsed.financing) {
+    return Response.json(
+      {
+        reply: 'How is the buyer financing this purchase?',
+        choices: [
+          { label: 'Cash', value: 'Cash deal' },
+          { label: 'Conventional', value: 'Conventional financing' },
+          { label: 'FHA', value: 'FHA financing' },
+          { label: 'VA', value: 'VA financing' },
+          { label: 'USDA', value: 'USDA financing' },
+        ],
+      },
+      { status: 200 },
+    );
+  }
+  if (parsed.state === 'DE' && !county) {
+    return Response.json(
+      {
+        reply: 'Which Delaware county is the property in?',
+        choices: [
+          { label: 'New Castle', value: 'New Castle County' },
+          { label: 'Kent', value: 'Kent County' },
+          { label: 'Sussex', value: 'Sussex County' },
+        ],
+      },
+      { status: 200 },
+    );
+  }
+  if (!parsed.hasSeptic) {
+    return Response.json(
+      {
+        reply: 'Does the property have a septic system?',
+        choices: [
+          { label: 'Yes', value: 'Yes, it has a septic system' },
+          { label: 'No', value: 'No septic system' },
+        ],
+      },
+      { status: 200 },
+    );
+  }
+  if (!parsed.hasWell) {
+    return Response.json(
+      {
+        reply: 'Does the property have a well?',
+        choices: [
+          { label: 'Yes', value: 'Yes, it has a well' },
+          { label: 'No', value: 'No well' },
+        ],
+      },
+      { status: 200 },
+    );
+  }
+  if (!parsed.electHomeInspection) {
+    return Response.json(
+      {
+        reply: 'Do you want to include a home inspection contingency?',
+        choices: [
+          { label: 'Keep inspection (recommended)', value: 'Keep the home inspection' },
+          { label: 'Waive inspection', value: 'Waive the home inspection' },
+        ],
+      },
+      { status: 200 },
+    );
+  }
+  if (!parsed.firstDeal) {
+    return Response.json(
+      {
+        reply: 'Is this your first deal with this buyer?',
+        choices: [
+          { label: 'Yes — first deal', value: 'Yes, this is my first deal with this buyer' },
+          { label: 'No — worked together before', value: 'No, not our first deal with this buyer' },
+        ],
+      },
+      { status: 200 },
+    );
+  }
+  if (price <= 0) {
+    return Response.json({ reply: 'What is the purchase price?' }, { status: 200 });
   }
 
   // 5. Seed the contract field values from everything gathered so the Fill page
