@@ -27,6 +27,7 @@ import { useToast } from '@documenso/ui/primitives/use-toast';
 
 import { useRequiredDocumentSigningAuthContext } from './document-signing-auth-provider';
 import { DocumentSigningFieldContainer } from './document-signing-field-container';
+import { useOptionalDocumentSigningFieldUpdate } from './document-signing-field-update-provider';
 import { useDocumentSigningRecipientContext } from './document-signing-recipient-provider';
 
 export type DocumentSigningDropdownFieldProps = {
@@ -43,6 +44,7 @@ export const DocumentSigningDropdownField = ({
   const { _ } = useLingui();
   const { toast } = useToast();
   const { revalidate } = useRevalidator();
+  const fieldUpdate = useOptionalDocumentSigningFieldUpdate();
 
   const { recipient, isAssistantMode } = useDocumentSigningRecipientContext();
 
@@ -79,15 +81,21 @@ export const DocumentSigningDropdownField = ({
         authOptions,
       };
 
+      let signedField: Awaited<ReturnType<typeof signFieldWithToken>> | undefined;
+
       if (onSignField) {
         await onSignField(payload);
       } else {
-        await signFieldWithToken(payload);
+        signedField = await signFieldWithToken(payload);
       }
 
       setLocalChoice('');
 
-      await revalidate();
+      if (fieldUpdate && signedField) {
+        fieldUpdate.onFieldSigned(signedField);
+      } else {
+        await revalidate();
+      }
     } catch (err) {
       const error = AppError.parseError(err);
 
@@ -127,7 +135,11 @@ export const DocumentSigningDropdownField = ({
 
       setLocalChoice('');
 
-      await revalidate();
+      if (fieldUpdate) {
+        fieldUpdate.onFieldRemoved(field.id);
+      } else {
+        await revalidate();
+      }
     } catch (err) {
       console.error(err);
 

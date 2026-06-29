@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Trans } from '@lingui/react/macro';
 import type { Field } from '@prisma/client';
@@ -24,6 +24,7 @@ import type { CompletedField } from '@documenso/lib/types/fields';
 import { isFieldUnsignedAndRequired } from '@documenso/lib/utils/advanced-fields-helpers';
 import { getDocumentDataUrlForPdfViewer } from '@documenso/lib/utils/envelope-download';
 import { validateFieldsInserted } from '@documenso/lib/utils/fields';
+import type { FieldWithSignature } from '@documenso/prisma/types/field-with-signature';
 import type { FieldWithSignatureAndFieldMeta } from '@documenso/prisma/types/field-with-signature-and-fieldmeta';
 import type { RecipientWithFields } from '@documenso/prisma/types/recipient-with-fields';
 import { trpc } from '@documenso/trpc/react';
@@ -50,6 +51,7 @@ import PDFViewerLazy from '~/components/general/pdf-viewer/pdf-viewer-lazy';
 
 import { useRequiredDocumentSigningAuthContext } from './document-signing-auth-provider';
 import { DocumentSigningCompleteDialog } from './document-signing-complete-dialog';
+import { DocumentSigningFieldUpdateProvider } from './document-signing-field-update-provider';
 import { DocumentSigningRecipientProvider } from './document-signing-recipient-provider';
 
 export type DocumentSigningPageViewV1Props = {
@@ -65,13 +67,66 @@ export type DocumentSigningPageViewV1Props = {
 export const DocumentSigningPageViewV1 = ({
   recipient,
   document,
-  fields,
+  fields: initialFields,
   completedFields,
   isRecipientsTurn,
   allRecipients = [],
   includeSenderDetails,
 }: DocumentSigningPageViewV1Props) => {
   const { documentData, documentMeta } = document;
+
+  /**
+   * The recipient's fields are held in local state so that signing a field can
+   * reflect instantly from the mutation result, instead of re-running the
+   * entire route loader via `revalidate()` on every interaction.
+   *
+   * Seeded once on mount — the loader data is re-deserialized into a new array
+   * reference on every render, so we deliberately do not re-sync on identity.
+   */
+  const [fields, setFields] = useState<FieldWithSignature[]>(() => initialFields);
+
+  const onFieldSigned = useCallback((updatedField: FieldWithSignature) => {
+    setFields((previousFields) =>
+      previousFields.map((field) =>
+        field.id === updatedField.id ? { ...field, ...updatedField } : field,
+      ),
+    );
+  }, []);
+
+  const onFieldRemoved = useCallback((fieldId: number) => {
+    setFields((previousFields) =>
+      previousFields.map((field) =>
+        field.id === fieldId
+          ? { ...field, inserted: false, customText: '', signature: null }
+          : field,
+      ),
+    );
+  }, []);
+
+  /**
+   * Field types that still fall back to `revalidate()` (e.g. checkbox, bulk
+   * auto-sign) re-run the route loader rather than updating local state
+   * directly. Re-sync local state from the loader whenever its field data
+   * genuinely changes so those paths stay correct.
+   *
+   * Keyed on a content signature rather than array identity: the loader data is
+   * re-deserialized into a new reference on every render, so an identity check
+   * would wipe the optimistic updates above on each render.
+   */
+  const loaderFieldsRef = useRef(initialFields);
+  loaderFieldsRef.current = initialFields;
+
+  const loaderFieldsSignature = useMemo(
+    () =>
+      initialFields
+        .map((field) => `${field.id}:${field.inserted ? 1 : 0}:${field.customText ?? ''}`)
+        .join('|'),
+    [initialFields],
+  );
+
+  useEffect(() => {
+    setFields(loaderFieldsRef.current);
+  }, [loaderFieldsSignature]);
 
   const { derivedRecipientAccessAuth, user: authUser } = useRequiredDocumentSigningAuthContext();
 
@@ -167,8 +222,9 @@ export const DocumentSigningPageViewV1 = ({
   const hasPendingFields = pendingFields.length > 0;
 
   return (
-    <DocumentSigningRecipientProvider recipient={recipient} targetSigner={targetSigner}>
-      <div className="mx-auto w-full max-w-screen-xl sm:px-6">
+    <DocumentSigningFieldUpdateProvider value={{ onFieldSigned, onFieldRemoved }}>
+      <DocumentSigningRecipientProvider recipient={recipient} targetSigner={targetSigner}>
+        <div className="mx-auto w-full max-w-screen-xl sm:px-6">
         {document.team.teamGlobalSettings.brandingEnabled &&
           document.team.teamGlobalSettings.brandingLogo && (
             <img
@@ -479,6 +535,7 @@ export const DocumentSigningPageViewV1 = ({
             )}
         </ElementVisible>
       </div>
-    </DocumentSigningRecipientProvider>
+      </DocumentSigningRecipientProvider>
+    </DocumentSigningFieldUpdateProvider>
   );
 };

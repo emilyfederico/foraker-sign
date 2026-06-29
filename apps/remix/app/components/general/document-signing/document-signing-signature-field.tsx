@@ -24,6 +24,7 @@ import { DocumentSigningDisclosure } from '~/components/general/document-signing
 
 import { useRequiredDocumentSigningAuthContext } from './document-signing-auth-provider';
 import { DocumentSigningFieldContainer } from './document-signing-field-container';
+import { useOptionalDocumentSigningFieldUpdate } from './document-signing-field-update-provider';
 import { useRequiredDocumentSigningContext } from './document-signing-provider';
 import { useDocumentSigningRecipientContext } from './document-signing-recipient-provider';
 
@@ -49,6 +50,7 @@ export const DocumentSigningSignatureField = ({
   const { _ } = useLingui();
   const { toast } = useToast();
   const { revalidate } = useRevalidator();
+  const fieldUpdate = useOptionalDocumentSigningFieldUpdate();
 
   const { recipient } = useDocumentSigningRecipientContext();
 
@@ -147,11 +149,16 @@ export const DocumentSigningSignatureField = ({
 
       if (onSignField) {
         await onSignField(payload);
+        await revalidate();
       } else {
-        await signFieldWithToken(payload);
-      }
+        const signedField = await signFieldWithToken(payload);
 
-      await revalidate();
+        if (fieldUpdate) {
+          fieldUpdate.onFieldSigned(signedField);
+        } else {
+          await revalidate();
+        }
+      }
     } catch (err) {
       const error = AppError.parseError(err);
 
@@ -183,7 +190,11 @@ export const DocumentSigningSignatureField = ({
         await removeSignedFieldWithToken(payload);
       }
 
-      await revalidate();
+      if (fieldUpdate) {
+        fieldUpdate.onFieldRemoved(field.id);
+      } else {
+        await revalidate();
+      }
     } catch (err) {
       console.error(err);
 

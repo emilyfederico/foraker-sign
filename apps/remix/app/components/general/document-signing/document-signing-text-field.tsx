@@ -24,6 +24,7 @@ import { useToast } from '@documenso/ui/primitives/use-toast';
 
 import { useRequiredDocumentSigningAuthContext } from './document-signing-auth-provider';
 import { DocumentSigningFieldContainer } from './document-signing-field-container';
+import { useOptionalDocumentSigningFieldUpdate } from './document-signing-field-update-provider';
 import {
   DocumentSigningFieldsInserted,
   DocumentSigningFieldsLoader,
@@ -56,6 +57,7 @@ export const DocumentSigningTextField = ({
   const { _ } = useLingui();
   const { toast } = useToast();
   const { revalidate } = useRevalidator();
+  const fieldUpdate = useOptionalDocumentSigningFieldUpdate();
 
   const { recipient, isAssistantMode } = useDocumentSigningRecipientContext();
 
@@ -164,11 +166,15 @@ export const DocumentSigningTextField = ({
         return;
       }
 
-      await signFieldWithToken(payload);
+      const signedField = await signFieldWithToken(payload);
 
       setLocalCustomText('');
 
-      await revalidate();
+      if (fieldUpdate) {
+        fieldUpdate.onFieldSigned(signedField);
+      } else {
+        await revalidate();
+      }
     } catch (err) {
       const error = AppError.parseError(err);
 
@@ -204,7 +210,11 @@ export const DocumentSigningTextField = ({
 
       setLocalCustomText(parsedFieldMeta?.text ?? '');
 
-      await revalidate();
+      if (fieldUpdate) {
+        fieldUpdate.onFieldRemoved(field.id);
+      } else {
+        await revalidate();
+      }
     } catch (err) {
       console.error(err);
 

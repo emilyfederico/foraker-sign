@@ -20,6 +20,7 @@ import { useToast } from '@documenso/ui/primitives/use-toast';
 
 import { useRequiredDocumentSigningAuthContext } from './document-signing-auth-provider';
 import { DocumentSigningFieldContainer } from './document-signing-field-container';
+import { useOptionalDocumentSigningFieldUpdate } from './document-signing-field-update-provider';
 import { DocumentSigningFieldsLoader } from './document-signing-fields';
 import { useDocumentSigningRecipientContext } from './document-signing-recipient-provider';
 
@@ -37,6 +38,7 @@ export const DocumentSigningRadioField = ({
   const { _ } = useLingui();
   const { toast } = useToast();
   const { revalidate } = useRevalidator();
+  const fieldUpdate = useOptionalDocumentSigningFieldUpdate();
 
   const { recipient, targetSigner, isAssistantMode } = useDocumentSigningRecipientContext();
 
@@ -81,15 +83,21 @@ export const DocumentSigningRadioField = ({
         authOptions,
       };
 
+      let signedField: Awaited<ReturnType<typeof signFieldWithToken>> | undefined;
+
       if (onSignField) {
         await onSignField(payload);
       } else {
-        await signFieldWithToken(payload);
+        signedField = await signFieldWithToken(payload);
       }
 
       setSelectedOption('');
 
-      await revalidate();
+      if (fieldUpdate && signedField) {
+        fieldUpdate.onFieldSigned(signedField);
+      } else {
+        await revalidate();
+      }
     } catch (err) {
       const error = AppError.parseError(err);
 
@@ -124,7 +132,11 @@ export const DocumentSigningRadioField = ({
 
       setSelectedOption('');
 
-      await revalidate();
+      if (fieldUpdate) {
+        fieldUpdate.onFieldRemoved(field.id);
+      } else {
+        await revalidate();
+      }
     } catch (err) {
       console.error(err);
 
