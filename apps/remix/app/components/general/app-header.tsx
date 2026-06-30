@@ -50,11 +50,11 @@ export const Header = ({ className, ...props }: HeaderProps) => {
   return (
     <header
       className={cn(
-        // Foraker brand: charcoal bar with white logo/nav. `dark` puts the
+        // Foraker brand: navy bar with white logo/nav. `dark` puts the
         // header's child components in dark-mode context so their text/icons
-        // render light on the charcoal background. Dropdowns portal out, so
+        // render light on the navy background. Dropdowns portal out, so
         // they still open as normal light popovers.
-        'dark sticky top-0 z-[60] flex h-16 w-full items-center border-b border-b-white/10 bg-[#262626] duration-200',
+        'dark sticky top-0 z-[60] flex h-16 w-full items-center border-b border-b-white/10 bg-[#15273c] duration-200',
         className,
       )}
       {...props}
