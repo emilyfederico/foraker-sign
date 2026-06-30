@@ -10,7 +10,7 @@ import { mapSecondaryIdToDocumentId } from '@documenso/lib/utils/envelope';
 import { formatSigningLink } from '@documenso/lib/utils/recipients';
 import { prisma } from '@documenso/prisma';
 
-import { buyerEnvelopeFields, buyerFieldNames } from './contract-buyer-fields.server';
+import { buyerCount, buyerEnvelopeFields, buyerFieldNames } from './contract-buyer-fields.server';
 import { CONTRACT_FIELD_MAP } from './contract-field-map.server';
 import { CONTRACT_FORMS_BASE64 } from './contract-forms.server';
 import { formValuesForState } from './contract-generation.server';
@@ -86,14 +86,14 @@ async function drawCheckedBoxes(
 export async function sendLoopToBuyer({
   userId,
   loop,
-  phone,
+  phones,
   request,
 }: {
   userId: number;
   loop: LoopForSend;
-  phone: string;
+  phones: string[];
   request: Request;
-}): Promise<{ documentId: number; url: string; textedTo: string } | { error: string }> {
+}): Promise<{ documentId: number; url: string; textedTo: string[] } | { error: string }> {
   if (!isSmsConfigured()) {
     return { error: 'Texting isn’t set up yet — add the Twilio keys in Railway.' };
   }
@@ -105,12 +105,14 @@ export async function sendLoopToBuyer({
   }
 
   const buyerName = loop.buyerName?.trim() || 'Buyer';
-  // Documenso needs an email on the recipient as its identifier, but we deliver
-  // by text — so use the buyer's email if known, else a non-routable placeholder.
-  const recipientEmail = loop.buyerEmail?.trim() || `buyer-${loop.id}@sms.foraker.ai`;
-  const buyerFields = buyerEnvelopeFields(state);
-  if (buyerFields.length === 0) {
+  const slots = buyerCount(state);
+  if (slots === 0) {
     return { error: `Signing isn't configured for ${state} contracts yet.` };
+  }
+  // One signer per valid phone, capped at the form's buyer slots.
+  const targets = phones.map((p) => p.trim()).filter((p) => p.replace(/\D/g, '').length >= 10).slice(0, slots);
+  if (targets.length === 0) {
+    return { error: 'Enter a valid mobile number to text.' };
   }
 
   // Merge the rule-free defaults with whatever the agent saved on the Fill page;
@@ -169,17 +171,18 @@ export async function sendLoopToBuyer({
       type: EnvelopeType.DOCUMENT,
       title,
       envelopeItems: [{ documentDataId: documentData.id }],
-      recipients: [
-        {
-          email: recipientEmail,
-          name: buyerName,
-          role: RecipientRole.SIGNER,
-          fields: buyerFields.map((f) => ({
-            ...f,
-            documentDataId: documentData.id,
-          })),
-        },
-      ],
+      recipients: targets.map((_, i) => ({
+        email:
+          i === 0 && loop.buyerEmail?.trim()
+            ? loop.buyerEmail.trim()
+            : `buyer${i + 1}-${loop.id}@sms.foraker.ai`,
+        name: i === 0 ? buyerName : `Co-Buyer ${i + 1}`,
+        role: RecipientRole.SIGNER,
+        fields: buyerEnvelopeFields(state, i).map((f) => ({
+          ...f,
+          documentDataId: documentData.id,
+        })),
+      })),
     },
     requestMetadata: {
       source: 'app',
@@ -202,29 +205,34 @@ export async function sendLoopToBuyer({
     },
   });
 
-  // Text the buyer their personal signing link.
-  const signer = await prisma.recipient.findFirst({
+  // Text each buyer their own personal signing link. Recipients come back in
+  // creation order, which matches `targets`.
+  const signers = await prisma.recipient.findMany({
     where: { envelopeId: envelope.id },
     select: { token: true },
     orderBy: { id: 'asc' },
   });
-  if (!signer) {
-    return { error: 'Could not find the buyer’s signing link to text.' };
+  const textedTo: string[] = [];
+  for (let i = 0; i < targets.length; i++) {
+    const token = signers[i]?.token;
+    if (!token) continue;
+    const sms = await sendSms({
+      to: targets[i],
+      body: `Foraker Realty: please review and sign your contract here: ${formatSigningLink(token)}`,
+    });
+    if (!sms.ok) {
+      return { error: sms.error };
+    }
+    textedTo.push(targets[i]);
   }
-
-  const link = formatSigningLink(signer.token);
-  const sms = await sendSms({
-    to: phone,
-    body: `Foraker Realty: please review and sign your contract here: ${link}`,
-  });
-  if (!sms.ok) {
-    return { error: sms.error };
+  if (textedTo.length === 0) {
+    return { error: 'Could not find the buyers’ signing links to text.' };
   }
 
   const documentId = mapSecondaryIdToDocumentId(envelope.secondaryId);
   return {
     documentId,
     url: `${WEBAPP_URL}/t/${team.url}/documents/${documentId}`,
-    textedTo: phone,
+    textedTo,
   };
 }

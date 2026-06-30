@@ -21,6 +21,16 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 const DARK = '#262626';
 
+// A few wide fill-in fields begin at the left margin, directly under a printed
+// "(Specify)" label that the form draws inside the field's own area — so a typed
+// value would sit on top of that label. Shift the input's start past the label
+// for these specific fields (fraction of page width).
+const LABEL_INDENT: Record<string, number> = {
+  // DE "ADDITIONAL INCLUSIONS (Specify)" / "ADDITIONAL EXCLUSIONS (Specify):"
+  p2_field_4: 0.075,
+  p2_field_6: 0.083,
+};
+
 export function ErrorBoundary() {
   const error = useRouteError();
   let detail = 'Unknown error';
@@ -134,9 +144,9 @@ export async function action({
     return Response.json({ saved: true });
   }
 
-  // Text to buyer: validate the phone, build the contract + text the signing link.
-  const phone = String(form.get('phone') || '').trim();
-  if (phone.replace(/\D/g, '').length < 10) {
+  // Text to buyer(s): collect up to two mobile numbers (one per buyer signer).
+  const phones = [String(form.get('phone') || ''), String(form.get('phone2') || '')];
+  if (!phones.some((p) => p.replace(/\D/g, '').length >= 10)) {
     return Response.json({ error: 'Enter a valid mobile number to text.' }, { status: 200 });
   }
 
@@ -159,7 +169,7 @@ export async function action({
       buyerEmail: loop.buyerEmail,
       fieldValues: loop.fieldValues,
     },
-    phone,
+    phones,
     request,
   });
 
@@ -216,6 +226,7 @@ export default function FillContractPage() {
 
   const [values, setValues] = useState<Record<string, string>>(initialValues);
   const [phone, setPhone] = useState('');
+  const [phone2, setPhone2] = useState('');
   const [pages, setPages] = useState<{ width: number; height: number }[]>([]);
   const [renderError, setRenderError] = useState<string | null>(null);
   const canvasRefs = useRef<(HTMLCanvasElement | null)[]>([]);
@@ -326,7 +337,12 @@ export default function FillContractPage() {
   function sendToBuyer() {
     if (!phone.trim() || saving) return;
     void fetcher.submit(
-      { intent: 'send', phone: phone.trim(), values: JSON.stringify(values) },
+      {
+        intent: 'send',
+        phone: phone.trim(),
+        phone2: phone2.trim(),
+        values: JSON.stringify(values),
+      },
       { method: 'post' },
     );
   }
@@ -377,8 +393,16 @@ export default function FillContractPage() {
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              placeholder="Buyer's mobile · +1 302 555 1234"
-              className="w-56 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1"
+              placeholder="Buyer 1 mobile · +1 302 555 1234"
+              className="w-48 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1"
+              style={{ outlineColor: DARK }}
+            />
+            <input
+              type="tel"
+              value={phone2}
+              onChange={(e) => setPhone2(e.target.value)}
+              placeholder="Buyer 2 mobile (optional)"
+              className="w-48 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1"
               style={{ outlineColor: DARK }}
             />
             <button
@@ -387,7 +411,11 @@ export default function FillContractPage() {
               className="rounded-lg px-5 py-2 text-sm font-semibold text-white disabled:opacity-60"
               style={{ backgroundColor: DARK }}
             >
-              {saving && pendingIntent === 'send' ? 'Texting…' : 'Text to buyer'}
+              {saving && pendingIntent === 'send'
+                ? 'Texting…'
+                : phone2.trim()
+                  ? 'Text to buyers'
+                  : 'Text to buyer'}
             </button>
           </div>
         )}
@@ -479,6 +507,8 @@ export default function FillContractPage() {
                   const line = (f.yPct + f.hPct) * size.height;
                   const baselineFromTop = (boxH - 1.231 * fontPx) / 2 + fontPx;
                   const top = line - 1 - baselineFromTop;
+                  // Clear any printed label the form draws inside this field.
+                  const indent = LABEL_INDENT[f.name] ?? 0;
                   return (
                     <input
                       key={`${pageIndex}-${i}`}
@@ -486,9 +516,9 @@ export default function FillContractPage() {
                       onChange={(e) => setValues((v) => ({ ...v, [f.name]: e.target.value }))}
                       className="absolute box-border bg-yellow-100/25 text-gray-900 outline-none focus:bg-yellow-100/70 focus:ring-1"
                       style={{
-                        left: f.xPct * size.width,
+                        left: (f.xPct + indent) * size.width,
                         top,
-                        width: f.wPct * size.width,
+                        width: (f.wPct - indent) * size.width,
                         height: boxH,
                         fontSize: fontPx,
                         lineHeight: `${boxH}px`,

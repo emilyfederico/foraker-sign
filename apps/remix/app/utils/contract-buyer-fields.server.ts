@@ -1,8 +1,9 @@
-// Server-only: derives the BUYER's signing fields for a contract from the
+// Server-only: derives each BUYER's signing fields for a contract from the
 // page-relative coordinate map. These become Documenso overlay fields on the
-// envelope sent to the buyer (so the buyer signs/initials/dates exactly where
-// the form requires) and grey "buyer completes this" markers on the agent's
-// Fill page. Imported only from loaders/actions — never the client bundle.
+// envelope (so each buyer signs/dates exactly where the form requires) and grey
+// "buyer signs here" markers on the agent's Fill page. The per-page initials are
+// NOT buyer fields — the agent types them and they bake into the PDF, so the
+// buyer only signs + dates. Imported only from loaders/actions — never client.
 import { CONTRACT_FIELD_MAP } from './contract-field-map.server';
 
 // A box in the coordinate-map convention: page is 0-based, positions are
@@ -15,96 +16,53 @@ type FractionBox = {
   hPct: number;
 };
 
-// Where the buyer signs/dates on each state's contract. Initials are derived
-// automatically from the map (every `*buyers_initials*` field); the signature
-// and date lines are not consistently named across states, so they're pinned
-// here. Coordinates come straight from contract-field-map.server.ts.
-// Verified by rendering each state's execution page and overlaying these boxes:
-// DE buyer line 1 = p9_field_26 (date p9_field_27); MD's buyer column is the
-// LEFT one (p10_field_22) — the field misleadingly named p10_buyer_signature is
-// the SELLER's; PA buyer line 1 = p14_821buyer_1 (date p14_821buyer_date_1).
-const BUYER_SIGN_CONFIG: Record<
-  string,
-  { sign: FractionBox & { sourceName?: string }; date: FractionBox & { sourceName?: string } }
-> = {
-  DE: {
-    sign: {
-      page: 8,
-      xPct: 0.05882,
-      yPct: 0.81032,
-      wPct: 0.4254,
-      hPct: 0.01641,
-      sourceName: 'p9_field_26',
-    },
-    date: {
-      page: 8,
-      xPct: 0.58824,
-      yPct: 0.81032,
-      wPct: 0.34361,
-      hPct: 0.01641,
-      sourceName: 'p9_field_27',
-    },
-  },
-  PA: {
-    sign: {
-      page: 13,
-      xPct: 0.11831,
-      yPct: 0.79194,
-      wPct: 0.45752,
-      hPct: 0.01641,
-      sourceName: 'p14_821buyer_1',
-    },
-    date: {
-      page: 13,
-      xPct: 0.64118,
-      yPct: 0.79194,
-      wPct: 0.30229,
-      hPct: 0.01641,
-      sourceName: 'p14_821buyer_date_1',
-    },
-  },
-  MD: {
-    // Buyer signs the LEFT column line (p10_field_22); the right column is the
-    // SELLER's. The "Buyer Signature" / "Date" captions split that one line, so
-    // the signature takes its left ~60% and the date sits under the "Date" caption.
-    sign: {
-      page: 9,
-      xPct: 0.05725,
-      yPct: 0.81273,
-      wPct: 0.27,
-      hPct: 0.01641,
-      sourceName: 'p10_field_22',
-    },
-    date: { page: 9, xPct: 0.355, yPct: 0.81273, wPct: 0.092, hPct: 0.01641 },
-  },
+type SignDate = {
+  sign: FractionBox & { sourceName?: string };
+  date: FractionBox & { sourceName?: string };
 };
 
-// Per-page buyer-initials boxes for forms whose initials lines are NOT AcroForm
-// widgets (so they aren't in CONTRACT_FIELD_MAP). PA's "Buyer Initials:____"
-// footers were extracted from the embedded PDF. DE's initials come from the map
-// instead; MD's contract has no per-page initials (signatures only at the end).
-const EXTRA_INITIALS_BOXES: Record<string, FractionBox[]> = {
+// Where each buyer signs/dates. Most contracts have two buyer lines; we model
+// both so co-buyers can each sign their own. Coordinates come straight from
+// contract-field-map.server.ts and were verified by rendering each execution
+// page. DE buyer lines = p9_field_26/28 (dates 27/29); PA = p14_821/822buyer
+// (+ _date); MD's buyer column is the LEFT one (p10_field_22/23) — the field
+// misleadingly named p10_buyer_signature is the SELLER's.
+const BUYER_SIGN_CONFIG: Record<string, SignDate[]> = {
+  DE: [
+    {
+      sign: { page: 8, xPct: 0.05882, yPct: 0.81032, wPct: 0.4254, hPct: 0.01641, sourceName: 'p9_field_26' },
+      date: { page: 8, xPct: 0.58824, yPct: 0.81032, wPct: 0.34361, hPct: 0.01641, sourceName: 'p9_field_27' },
+    },
+    {
+      sign: { page: 8, xPct: 0.05882, yPct: 0.8379, wPct: 0.4254, hPct: 0.01641, sourceName: 'p9_field_28' },
+      date: { page: 8, xPct: 0.58824, yPct: 0.8379, wPct: 0.34361, hPct: 0.01641, sourceName: 'p9_field_29' },
+    },
+  ],
   PA: [
-    { page: 0, xPct: 0.15334, yPct: 0.92635, wPct: 0.09, hPct: 0.0164 },
-    { page: 1, xPct: 0.15958, yPct: 0.94908, wPct: 0.09, hPct: 0.0164 },
-    { page: 2, xPct: 0.15958, yPct: 0.94908, wPct: 0.09, hPct: 0.0164 },
-    { page: 3, xPct: 0.15958, yPct: 0.94908, wPct: 0.09, hPct: 0.0164 },
-    { page: 4, xPct: 0.15958, yPct: 0.94908, wPct: 0.09, hPct: 0.0164 },
-    { page: 5, xPct: 0.15958, yPct: 0.94908, wPct: 0.09, hPct: 0.0164 },
-    { page: 6, xPct: 0.15958, yPct: 0.94908, wPct: 0.09, hPct: 0.0164 },
-    { page: 7, xPct: 0.15958, yPct: 0.94908, wPct: 0.09, hPct: 0.0164 },
-    { page: 8, xPct: 0.15958, yPct: 0.94908, wPct: 0.09, hPct: 0.0164 },
-    { page: 9, xPct: 0.15958, yPct: 0.94908, wPct: 0.09, hPct: 0.0164 },
-    { page: 10, xPct: 0.15958, yPct: 0.94908, wPct: 0.09, hPct: 0.0164 },
-    { page: 11, xPct: 0.15958, yPct: 0.94908, wPct: 0.09, hPct: 0.0164 },
-    { page: 12, xPct: 0.15958, yPct: 0.94908, wPct: 0.09, hPct: 0.0164 },
+    {
+      sign: { page: 13, xPct: 0.11831, yPct: 0.79194, wPct: 0.45752, hPct: 0.01641, sourceName: 'p14_821buyer_1' },
+      date: { page: 13, xPct: 0.64118, yPct: 0.79194, wPct: 0.30229, hPct: 0.01641, sourceName: 'p14_821buyer_date_1' },
+    },
+    {
+      sign: { page: 13, xPct: 0.11831, yPct: 0.80961, wPct: 0.45752, hPct: 0.01641, sourceName: 'p14_822buyer_1' },
+      date: { page: 13, xPct: 0.64118, yPct: 0.80961, wPct: 0.30229, hPct: 0.01641, sourceName: 'p14_822buyer_date_1' },
+    },
+  ],
+  MD: [
+    // Buyer column is the LEFT line; "Buyer Signature" / "Date" captions split it.
+    {
+      sign: { page: 9, xPct: 0.05725, yPct: 0.81273, wPct: 0.27, hPct: 0.01641, sourceName: 'p10_field_22' },
+      date: { page: 9, xPct: 0.355, yPct: 0.81273, wPct: 0.092, hPct: 0.01641 },
+    },
+    {
+      sign: { page: 9, xPct: 0.05725, yPct: 0.84322, wPct: 0.27, hPct: 0.01641, sourceName: 'p10_field_23' },
+      date: { page: 9, xPct: 0.355, yPct: 0.84322, wPct: 0.092, hPct: 0.01641 },
+    },
   ],
 };
 
 // A buyer field ready to attach to a Documenso recipient: percentages (0–100),
-// 1-based page, top-left origin — the convention createEnvelope expects. The
-// field type and its fieldMeta.type must correlate, so this is a discriminated
-// union (createEnvelope's input type enforces the same correlation).
+// 1-based page, top-left origin — the convention createEnvelope expects.
 type Geometry = {
   page: number;
   positionX: number;
@@ -117,10 +75,6 @@ export type BuyerEnvelopeField =
   | (Geometry & {
       type: 'SIGNATURE';
       fieldMeta: { type: 'signature'; required: boolean; label: string };
-    })
-  | (Geometry & {
-      type: 'INITIALS';
-      fieldMeta: { type: 'initials'; required: boolean; label: string };
     })
   | (Geometry & { type: 'DATE'; fieldMeta: { type: 'date'; required: boolean; label: string } });
 
@@ -151,24 +105,18 @@ function geom(box: FractionBox, tall: boolean): Geometry {
   };
 }
 
-function buyerInitialBoxes(state: string): FractionBox[] {
-  // Prefer real AcroForm initials widgets (DE); fall back to the extracted
-  // overlay-only boxes (PA). States with neither (MD) get no per-page initials.
-  const mapped = (CONTRACT_FIELD_MAP[state] ?? [])
-    .filter((f) => /buyers_initials/i.test(f.name))
-    .map(({ page, xPct, yPct, wPct, hPct }) => ({ page, xPct, yPct, wPct, hPct }));
-  return mapped.length > 0 ? mapped : (EXTRA_INITIALS_BOXES[state] ?? []);
+/** How many buyer signing slots a state's contract has (0 = can't send yet). */
+export function buyerCount(state: string): number {
+  return (BUYER_SIGN_CONFIG[state] ?? []).length;
 }
 
 /**
- * The buyer's Documenso fields for a state: a SIGNATURE + DATE on the execution
- * page, plus INITIALS everywhere the form has a buyer-initials box. Returns []
- * for an unknown state (caller should treat that as "can't send yet").
+ * One buyer's Documenso fields (signature + date) on the execution page.
+ * `buyerIndex` selects which buyer line. Returns [] for an unknown state/slot.
  */
-export function buyerEnvelopeFields(state: string): BuyerEnvelopeField[] {
-  const cfg = BUYER_SIGN_CONFIG[state];
+export function buyerEnvelopeFields(state: string, buyerIndex = 0): BuyerEnvelopeField[] {
+  const cfg = BUYER_SIGN_CONFIG[state]?.[buyerIndex];
   if (!cfg) return [];
-
   return [
     {
       ...geom(cfg.sign, true),
@@ -180,41 +128,31 @@ export function buyerEnvelopeFields(state: string): BuyerEnvelopeField[] {
       type: 'DATE',
       fieldMeta: { type: 'date', required: true, label: 'Date' },
     },
-    ...buyerInitialBoxes(state).map(
-      (b): BuyerEnvelopeField => ({
-        ...geom(b, false),
-        type: 'INITIALS',
-        fieldMeta: { type: 'initials', required: true, label: 'Buyer initials' },
-      }),
-    ),
   ];
 }
 
-/** The same buyer spots, in the Fill page's coordinate convention, for markers. */
+/** Every buyer's sign/date spots, in the Fill page's coordinate convention. */
 export function buyerMarkers(state: string): BuyerMarker[] {
-  const cfg = BUYER_SIGN_CONFIG[state];
-  if (!cfg) return [];
-  const mark = (b: FractionBox, label: string): BuyerMarker => ({ label, ...b });
-  return [
-    mark(cfg.sign, 'Buyer signs'),
-    mark(cfg.date, 'Date'),
-    ...buyerInitialBoxes(state).map((b) => mark(b, 'Initial')),
-  ];
+  const cfgs = BUYER_SIGN_CONFIG[state] ?? [];
+  const out: BuyerMarker[] = [];
+  cfgs.forEach((cfg, i) => {
+    const who = cfgs.length > 1 ? `Buyer ${i + 1}` : 'Buyer';
+    out.push({ label: `${who} signs`, ...cfg.sign });
+    out.push({ label: 'Date', ...cfg.date });
+  });
+  return out;
 }
 
 /**
- * AcroForm field names the buyer owns — the agent's Fill page should NOT render
- * editable inputs for these (the buyer fills them when signing). Includes every
- * buyer-initials box plus the signature/date source lines where they map to a
- * real form field.
+ * AcroForm field names the buyers own — the agent's Fill page should NOT render
+ * editable inputs for these (the buyer signs/dates them). Just the signature and
+ * date lines; initials are agent-typed, so they are intentionally NOT here.
  */
 export function buyerFieldNames(state: string): Set<string> {
   const names = new Set<string>();
-  for (const f of CONTRACT_FIELD_MAP[state] ?? []) {
-    if (/buyers_initials/i.test(f.name)) names.add(f.name);
+  for (const cfg of BUYER_SIGN_CONFIG[state] ?? []) {
+    if (cfg.sign.sourceName) names.add(cfg.sign.sourceName);
+    if (cfg.date.sourceName) names.add(cfg.date.sourceName);
   }
-  const cfg = BUYER_SIGN_CONFIG[state];
-  if (cfg?.sign.sourceName) names.add(cfg.sign.sourceName);
-  if (cfg?.date.sourceName) names.add(cfg.date.sourceName);
   return names;
 }
