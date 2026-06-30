@@ -21,12 +21,19 @@ export function ContractChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([GREETING]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  // Text handed in from the /home hero box, queued to auto-send once the panel
+  // is open (see the effect below).
+  const [pending, setPending] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Let other parts of the app (e.g. the "Create with AI" button on /home) open
-  // this panel by dispatching a window event, so the chat stays self-contained.
+  // Let other parts of the app (e.g. the /home chat box) open this panel by
+  // dispatching a window event, optionally seeding the first message.
   useEffect(() => {
-    const openChat = () => setOpen(true);
+    const openChat = (e: Event) => {
+      setOpen(true);
+      const text = (e as CustomEvent<{ text?: string }>).detail?.text;
+      if (typeof text === 'string' && text.trim()) setPending(text.trim());
+    };
     window.addEventListener('foraker:open-contract-chat', openChat);
     return () => window.removeEventListener('foraker:open-contract-chat', openChat);
   }, []);
@@ -78,6 +85,16 @@ export function ContractChat() {
       scrollToBottom();
     }
   }
+
+  // Send the message seeded from the /home hero box once the panel is open.
+  // Intentionally keyed on `pending` only — `send` reads the latest state via
+  // closure on each render, and re-firing on `send`/`sending` would risk loops.
+  useEffect(() => {
+    if (pending && !sending) {
+      void send(pending);
+      setPending(null);
+    }
+  }, [pending]);
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Enter' && !e.shiftKey) {

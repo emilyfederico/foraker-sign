@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import { Link } from 'react-router';
 
 import { authClient } from '@documenso/auth/client';
@@ -63,13 +65,35 @@ const CSS = `
       letter-spacing:.12em;text-transform:uppercase;font-family:"Cinzel","Iowan Old Style",Georgia,serif;}
   .fk .strip a:hover{color:var(--cream);}
   .fk .strip svg{width:15px;height:15px;color:var(--gold);}
+
+  .fk .ask{width:100%;max-width:600px;display:flex;align-items:center;gap:12px;
+      background:#f8f5ee;border-radius:999px;padding:13px 14px 13px 20px;}
+  .fk .ask .plus{display:flex;color:var(--navy);}
+  .fk .ask .plus svg{width:21px;height:21px;}
+  .fk .ask input{flex:1;border:none;background:transparent;outline:none;font-family:inherit;
+      font-size:16px;color:var(--navy);min-width:0;}
+  .fk .ask input::placeholder{color:#8d887c;}
+  .fk .ask .send{width:38px;height:38px;flex:none;border:none;border-radius:50%;cursor:pointer;
+      background:var(--navy);color:var(--gold);display:flex;align-items:center;justify-content:center;transition:.2s;}
+  .fk .ask .send:hover{background:#1d3148;}
+  .fk .ask .send svg{width:19px;height:19px;}
+  .fk .hint{margin:13px 0 0;font-size:12.5px;color:var(--muted);}
 `;
 
-function openAiChat() {
-  window.dispatchEvent(new Event('foraker:open-contract-chat'));
-}
-
 export default function HomePage() {
+  const [q, setQ] = useState('');
+
+  // Open the floating Foraker Assistant, seeded with whatever was typed so it
+  // jumps straight into building the contract. Empty input just opens the chat.
+  function startAi(e: React.FormEvent) {
+    e.preventDefault();
+    const text = q.trim();
+    window.dispatchEvent(
+      new CustomEvent('foraker:open-contract-chat', text ? { detail: { text } } : undefined),
+    );
+    setQ('');
+  }
+
   return (
     <div>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
@@ -94,23 +118,29 @@ export default function HomePage() {
         </div>
 
         <main className="center">
-          <div className="eyebrow up d1">NEW CONTRACT</div>
-          <h1 className="hl display up d2">Create a contract</h1>
-          <p className="lead up d3">
-            Write it yourself, or let our AI draft it from a single sentence about the deal.
-          </p>
-          <div className="actions up d4">
-            <button type="button" className="btn btn-gold" onClick={openAiChat}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.8}
-                  d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z"
-                />
+          <h1 className="hl display up d2">{"Let's write your contract."}</h1>
+
+          <form className="ask up d3" onSubmit={startAi}>
+            <span className="plus" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 5v14M5 12h14" />
               </svg>
-              Create with AI
+            </span>
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Ask Foraker Assistant"
+              aria-label="Describe the contract you need"
+            />
+            <button type="submit" className="send" aria-label="Start with Foraker Assistant">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19V5M5 12l7-7 7 7" />
+              </svg>
             </button>
+          </form>
+          <p className="hint up d3">e.g. &ldquo;PA contract for 123 Memorial Dr, buyer Ronald Johnson&rdquo;</p>
+
+          <div className="actions up d4">
             <Link className="btn btn-ghost" to="/loops">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
                 <path
