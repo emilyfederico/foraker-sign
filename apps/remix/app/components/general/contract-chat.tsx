@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 type Choice = { label: string; value: string };
 
@@ -22,6 +22,14 @@ export function ContractChat() {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Let other parts of the app (e.g. the "Create with AI" button on /home) open
+  // this panel by dispatching a window event, so the chat stays self-contained.
+  useEffect(() => {
+    const openChat = () => setOpen(true);
+    window.addEventListener('foraker:open-contract-chat', openChat);
+    return () => window.removeEventListener('foraker:open-contract-chat', openChat);
+  }, []);
 
   function scrollToBottom() {
     requestAnimationFrame(() => {

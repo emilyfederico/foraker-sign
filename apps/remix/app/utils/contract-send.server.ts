@@ -1,4 +1,4 @@
-import { PDFDocument, rgb } from '@cantoo/pdf-lib';
+import { PDFDocument, StandardFonts, rgb } from '@cantoo/pdf-lib';
 import { EnvelopeType, RecipientRole } from '@prisma/client';
 
 import { sendDocument } from '@documenso/lib/server-only/document/send-document';
@@ -73,6 +73,48 @@ async function drawCheckedBoxes(
   return Buffer.from(await doc.save());
 }
 
+// Fields whose AcroForm widget begins at the left margin, directly under a
+// printed "(Specify)" label. Filling them normally would print the value on top
+// of the label, so we draw their text manually, indented past the label. Keep in
+// sync with LABEL_INDENT in loops.$loopId.fill.tsx (the on-screen overlay).
+const LABEL_INDENT: Record<string, number> = {
+  p2_field_4: 0.075, // DE "ADDITIONAL INCLUSIONS (Specify)"
+  p2_field_6: 0.083, // DE "ADDITIONAL EXCLUSIONS (Specify):"
+};
+
+// Draw the indented value for each LABEL_INDENT field onto the page, so the
+// baked PDF matches the Fill view (text past the label, resting on the line).
+async function drawIndentedFields(
+  pdf: Buffer,
+  state: string,
+  values: Record<string, string>,
+): Promise<Buffer> {
+  const fieldsByName = new Map((CONTRACT_FIELD_MAP[state] ?? []).map((f) => [f.name, f]));
+  const entries = Object.entries(LABEL_INDENT).filter(
+    ([name]) => values[name] && fieldsByName.has(name),
+  );
+  if (entries.length === 0) return pdf;
+
+  const doc = await PDFDocument.load(pdf);
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  const pages = doc.getPages();
+  const ink = rgb(0.1, 0.1, 0.1);
+
+  for (const [name, indent] of entries) {
+    const f = fieldsByName.get(name)!;
+    const page = pages[f.page];
+    if (!page) continue;
+    const { width, height } = page.getSize();
+    const size = Math.min(Math.max(f.hPct * height * 0.75, 8), 11);
+    // pdf-lib uses a bottom-left origin; the printed line is the box bottom.
+    const x = (f.xPct + indent) * width + 1;
+    const y = height - (f.yPct + f.hPct) * height + 2;
+    page.drawText(values[name], { x, y, size, font, color: ink });
+  }
+
+  return Buffer.from(await doc.save());
+}
+
 /**
  * "Text to buyer": bake the agent's filled values into the contract PDF, create
  * a Documenso envelope with the buyer as the sole signer (their signature/
@@ -138,6 +180,7 @@ export async function sendLoopToBuyer({
     if (!value) continue;
     if (key.startsWith('cb_')) continue;
     if (buyerOwned.has(key)) continue;
+    if (LABEL_INDENT[key] != null) continue; // drawn manually, indented past its label
     textValues[key] = value;
   }
 
@@ -145,7 +188,8 @@ export async function sendLoopToBuyer({
     pdf: Buffer.from(pdfBase64, 'base64'),
     formValues: textValues,
   });
-  const filled = await drawCheckedBoxes(filledText, state, merged);
+  let filled = await drawCheckedBoxes(filledText, state, merged);
+  filled = await drawIndentedFields(filled, state, merged);
 
   const team = await prisma.team.findFirst({
     where: { organisation: { ownerUserId: userId } },
