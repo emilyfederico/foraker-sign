@@ -3,6 +3,7 @@ import { Link, isRouteErrorResponse, useLoaderData, useRouteError } from 'react-
 import { getSession } from '@documenso/auth/server/lib/utils/get-session';
 import { prisma } from '@documenso/prisma';
 
+import { LoopPeople, type Person } from '~/components/general/loop-people';
 import { TemplateFolderBrowser } from '~/components/general/template-folder-browser';
 
 const INK = '#262626';
@@ -52,7 +53,68 @@ export async function loader({
     throw new Response('Loop not found', { status: 404 });
   }
 
-  return Response.json({ loop });
+  // The owning agent always appears on the loop. Their role follows the deal
+  // type: on a listing they're the listing agent, otherwise the buyer agent.
+  const agent = {
+    name: user.name ?? user.email,
+    email: user.email,
+    role: loop.transactionType === 'LISTING' ? 'Listing Agent' : 'Buyer Agent',
+  };
+
+  return Response.json({ loop, agent });
+}
+
+// Add or remove people on the loop. People live in the `people` JSON column as
+// an array of { id, name, email, role }.
+export async function action({
+  request,
+  params,
+}: {
+  request: Request;
+  params: { loopId: string };
+}) {
+  const { user } = await getSession(request);
+  const form = await request.formData();
+  const intent = String(form.get('intent') || '');
+
+  const loop = await prisma.transaction.findFirst({
+    where: { id: params.loopId, userId: user.id },
+    select: { people: true },
+  });
+  if (!loop) {
+    throw new Response('Loop not found', { status: 404 });
+  }
+
+  const people = (Array.isArray(loop.people) ? loop.people : []) as Person[];
+  let next = people;
+
+  if (intent === 'addPerson') {
+    const name = String(form.get('name') || '').trim();
+    if (!name) {
+      return Response.json({ error: 'Name is required' }, { status: 400 });
+    }
+    next = [
+      ...people,
+      {
+        id: crypto.randomUUID(),
+        name,
+        email: String(form.get('email') || '').trim(),
+        role: String(form.get('role') || 'Other').trim() || 'Other',
+      },
+    ];
+  } else if (intent === 'removePerson') {
+    const id = String(form.get('id') || '');
+    next = people.filter((p) => p.id !== id);
+  } else {
+    return Response.json({ error: 'Unknown intent' }, { status: 400 });
+  }
+
+  await prisma.transaction.updateMany({
+    where: { id: params.loopId, userId: user.id },
+    data: { people: next },
+  });
+
+  return Response.json({ ok: true });
 }
 
 type Loop = {
@@ -65,10 +127,16 @@ type Loop = {
   beds: number | null;
   transactionType: string;
   sentAt: string | null;
+  buyerName: string | null;
+  buyerEmail: string | null;
+  people: Person[] | null;
 };
 
+type Agent = { name: string; email: string; role: string };
+
 export default function LoopDetailPage() {
-  const { loop } = useLoaderData() as { loop: Loop };
+  const { loop, agent } = useLoaderData() as { loop: Loop; agent: Agent };
+  const buyer = loop.buyerName ? { name: loop.buyerName, email: loop.buyerEmail ?? '' } : null;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">
@@ -122,6 +190,8 @@ export default function LoopDetailPage() {
 
         <TemplateFolderBrowser />
       </div>
+
+      <LoopPeople people={loop.people ?? []} agent={agent} buyer={buyer} />
     </div>
   );
 }

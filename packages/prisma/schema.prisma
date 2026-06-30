@@ -1176,6 +1176,11 @@ model Transaction {
   // Filled contract field values (AcroForm field name -> value) from the Fill view.
   fieldValues Json?
 
+  // People on the loop (clients, vendors, co-agents the agent invites). Array of
+  // { id, name, email, role } — mirrors the dotloop "People" panel. JSON like
+  // fieldValues/agentProfile to avoid a separate relational table.
+  people Json?
+
   // Set once the agent clicks "Send to buyer": the Documenso document the buyer
   // was sent for signature, and when. Used to show "Sent" state and a link.
   sentDocumentId Int?
