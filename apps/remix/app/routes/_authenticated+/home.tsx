@@ -51,10 +51,11 @@ const CSS = `
       font-size:12.5px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;text-decoration:none;
       cursor:pointer;border:none;font-family:"Cinzel","Iowan Old Style",Georgia,serif;transition:.2s;}
   .fk .btn svg{width:16px;height:16px;}
-  .fk .btn-gold{background:var(--gold);color:var(--navy);}
-  .fk .btn-gold:hover{background:var(--gold-hi);transform:translateY(-1px);}
-  .fk .btn-ghost{background:transparent;border:1.5px solid rgba(245,241,232,.45);color:var(--cream);}
-  .fk .btn-ghost:hover{background:rgba(245,241,232,.1);border-color:var(--cream);}
+  .fk .btn-gold,.fk .btn-ghost{background:#243b58;color:var(--cream);
+      border:1.5px solid rgba(245,241,232,.22);}
+  .fk .btn-gold:hover,.fk .btn-ghost:hover{background:#2d4869;border-color:rgba(245,241,232,.4);
+      transform:translateY(-1px);}
+  .fk .btn-gold svg{color:var(--gold);}
 
   .fk .strip{border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:clamp(18px,4vw,40px);
       justify-content:center;padding:18px;font-size:12px;}
