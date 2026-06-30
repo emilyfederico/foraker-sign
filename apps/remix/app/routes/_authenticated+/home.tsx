@@ -9,54 +9,58 @@ import { ContractChat } from '~/components/general/contract-chat';
 // leads with the core choice: write the contract yourself, or let AI draft it.
 // "Create with AI" opens the floating ContractChat via a window event.
 const CSS = `
-  .fk{--ink:#1c1c1c;--cream:#f6f2ea;--paper:#fbf9f5;--gold:#bda05a;--gold-hi:#cdb06b;
-      --muted:#8d8579;--line:#e3ddd0;--soft:#6b655a;
-      font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&display=swap');
+  .fk{--navy:#15273c;--ink:#15273c;--cream:#f5f1e8;--gold:#c2a563;--gold-hi:#d6bd7d;
+      --muted:rgba(245,241,232,.58);--soft:rgba(245,241,232,.74);--line:rgba(245,241,232,.14);
+      font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--cream);
       line-height:1.55;-webkit-font-smoothing:antialiased;min-height:100vh;
-      display:flex;flex-direction:column;background:var(--paper);overflow-x:hidden;}
+      display:flex;flex-direction:column;background:var(--navy);overflow-x:hidden;}
   .fk *{box-sizing:border-box;}
-  .fk .serif{font-family:"Iowan Old Style","Palatino Linotype",Georgia,"Times New Roman",serif;}
+  .fk .caps{font-family:"Cinzel","Iowan Old Style",Georgia,serif;}
+  .fk .display{font-family:"Cormorant Garamond","Iowan Old Style",Georgia,serif;}
   @keyframes fkup{from{opacity:0;transform:translateY(18px);}to{opacity:1;transform:none;}}
   .fk .up{animation:fkup .8s cubic-bezier(.2,.7,.2,1) both;}
   .fk .d1{animation-delay:.1s;}.fk .d2{animation-delay:.22s;}.fk .d3{animation-delay:.34s;}.fk .d4{animation-delay:.46s;}
   @media(prefers-reduced-motion:reduce){.fk .up{animation:none;}}
 
   .fk .topnav{display:flex;align-items:center;justify-content:space-between;gap:16px;
-      padding:22px clamp(20px,4vw,40px);}
-  .fk .mark{display:flex;align-items:center;gap:11px;text-decoration:none;color:var(--ink);}
-  .fk .crest{width:30px;height:30px;border:1.5px solid var(--gold);border-radius:50%;
-      display:flex;align-items:center;justify-content:center;font-size:15px;}
-  .fk .wordmark b{display:block;font-weight:600;letter-spacing:.3em;font-size:15px;}
-  .fk .wordmark .sm{display:block;margin-top:2px;font-size:8px;letter-spacing:.5em;color:var(--muted);}
-  .fk .nav{display:flex;gap:22px;font-size:13px;letter-spacing:.03em;align-items:center;}
-  .fk .nav a{color:var(--muted);text-decoration:none;}
-  .fk .nav a:hover{color:var(--ink);}
-  .fk .nav .signout{background:none;border:1px solid #cfc7b6;border-radius:999px;
-      padding:6px 15px;font:inherit;font-size:13px;color:var(--soft);cursor:pointer;}
-  .fk .nav .signout:hover{background:#fff;color:var(--ink);}
+      padding:22px clamp(20px,4vw,40px);border-bottom:1px solid var(--line);}
+  .fk .mark{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--cream);}
+  .fk .crest{width:32px;height:32px;border:1.5px solid var(--gold);border-radius:50%;
+      display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--gold);}
+  .fk .wordmark b{display:block;font-weight:600;letter-spacing:.26em;font-size:17px;}
+  .fk .wordmark .sm{display:block;margin-top:3px;font-size:8px;letter-spacing:.46em;color:var(--muted);}
+  .fk .nav{display:flex;gap:26px;font-size:13px;letter-spacing:.14em;align-items:center;}
+  .fk .nav a{color:rgba(245,241,232,.78);text-decoration:none;text-transform:uppercase;}
+  .fk .nav a:hover{color:var(--cream);}
+  .fk .nav .signout{background:none;border:1px solid rgba(245,241,232,.32);border-radius:999px;
+      padding:6px 16px;font-family:inherit;font-size:12px;letter-spacing:.12em;text-transform:uppercase;
+      color:rgba(245,241,232,.78);cursor:pointer;}
+  .fk .nav .signout:hover{background:rgba(245,241,232,.1);color:var(--cream);}
   @media(max-width:680px){.fk .nav a{display:none;}}
 
   .fk .center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
       text-align:center;padding:40px clamp(20px,5vw,40px) 50px;}
-  .fk .eyebrow{font-size:11px;letter-spacing:.4em;color:var(--gold);font-weight:600;margin-bottom:18px;}
-  .fk .hl{font-size:clamp(36px,6vw,58px);line-height:1.04;font-weight:600;letter-spacing:-.015em;margin:0;
-      text-wrap:balance;}
-  .fk .lead{margin:18px 0 34px;font-size:clamp(15px,1.7vw,18px);color:var(--soft);max-width:46ch;}
+  .fk .eyebrow{font-size:12px;letter-spacing:.42em;color:var(--gold);font-weight:500;margin-bottom:18px;
+      text-transform:uppercase;}
+  .fk .hl{font-size:clamp(46px,8vw,84px);line-height:1.0;font-weight:600;letter-spacing:.005em;margin:0;
+      text-wrap:balance;color:var(--cream);}
+  .fk .lead{margin:20px 0 36px;font-size:clamp(15px,1.7vw,18px);color:var(--soft);max-width:46ch;}
   .fk .actions{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;}
-  .fk .btn{display:inline-flex;align-items:center;gap:9px;padding:14px 26px;border-radius:999px;
-      font-size:14px;font-weight:600;letter-spacing:.02em;text-decoration:none;cursor:pointer;
-      border:none;font-family:inherit;transition:.2s;}
-  .fk .btn svg{width:17px;height:17px;}
-  .fk .btn-gold{background:var(--gold);color:var(--ink);}
+  .fk .btn{display:inline-flex;align-items:center;gap:9px;padding:14px 28px;border-radius:999px;
+      font-size:12.5px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;text-decoration:none;
+      cursor:pointer;border:none;font-family:"Cinzel","Iowan Old Style",Georgia,serif;transition:.2s;}
+  .fk .btn svg{width:16px;height:16px;}
+  .fk .btn-gold{background:var(--gold);color:var(--navy);}
   .fk .btn-gold:hover{background:var(--gold-hi);transform:translateY(-1px);}
-  .fk .btn-ghost{background:transparent;border:1.5px solid #c9c1b1;color:var(--ink);}
-  .fk .btn-ghost:hover{background:#fff;border-color:var(--ink);}
+  .fk .btn-ghost{background:transparent;border:1.5px solid rgba(245,241,232,.45);color:var(--cream);}
+  .fk .btn-ghost:hover{background:rgba(245,241,232,.1);border-color:var(--cream);}
 
   .fk .strip{border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:clamp(18px,4vw,40px);
-      justify-content:center;padding:18px;font-size:12.5px;}
+      justify-content:center;padding:18px;font-size:12px;}
   .fk .strip a{display:inline-flex;align-items:center;gap:8px;color:var(--muted);text-decoration:none;
-      letter-spacing:.02em;}
-  .fk .strip a:hover{color:var(--ink);}
+      letter-spacing:.12em;text-transform:uppercase;font-family:"Cinzel","Iowan Old Style",Georgia,serif;}
+  .fk .strip a:hover{color:var(--cream);}
   .fk .strip svg{width:15px;height:15px;color:var(--gold);}
 `;
 
@@ -71,9 +75,9 @@ export default function HomePage() {
       <div className="fk">
         <div className="topnav up">
           <Link to="/home" className="mark">
-            <span className="crest serif">F</span>
-            <span className="wordmark">
-              <b className="serif">FORAKER</b>
+            <span className="crest caps">F</span>
+            <span className="wordmark caps">
+              <b>FORAKER</b>
               <span className="sm">REALTY&nbsp;CO</span>
             </span>
           </Link>
@@ -90,7 +94,7 @@ export default function HomePage() {
 
         <main className="center">
           <div className="eyebrow up d1">NEW CONTRACT</div>
-          <h1 className="hl serif up d2">Create a contract</h1>
+          <h1 className="hl display up d2">Create a contract</h1>
           <p className="lead up d3">
             Write it yourself, or let our AI draft it from a single sentence about the deal.
           </p>
