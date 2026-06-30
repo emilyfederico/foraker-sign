@@ -92,7 +92,7 @@ export function ContractChat() {
       <button
         onClick={() => setOpen((o) => !o)}
         className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#262626] text-white shadow-lg transition-transform hover:scale-105"
-        aria-label="Open contract assistant"
+        aria-label="Open Foraker Assistant"
       >
         {open ? (
           <span className="text-2xl leading-none">&times;</span>
@@ -112,7 +112,7 @@ export function ContractChat() {
       {open && (
         <div className="fixed bottom-24 right-6 z-50 flex h-[28rem] w-[22rem] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl">
           <div className="bg-[#262626] px-4 py-3">
-            <p className="text-sm font-semibold text-white">Contract Assistant</p>
+            <p className="text-sm font-semibold text-white">Foraker Assistant</p>
             <p className="text-xs text-green-100">Describe the contract you need</p>
           </div>
 
