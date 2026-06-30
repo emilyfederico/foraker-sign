@@ -2,11 +2,10 @@ import { type HTMLAttributes, useEffect, useState } from 'react';
 
 import { ReadStatus } from '@prisma/client';
 import { InboxIcon, MenuIcon, SearchIcon } from 'lucide-react';
-import { Link, useParams } from 'react-router';
+import { Link } from 'react-router';
 
 import { useSession } from '@documenso/lib/client-only/providers/session';
 import { isPersonalLayout } from '@documenso/lib/utils/organisations';
-import { getRootHref } from '@documenso/lib/utils/params';
 import { trpc } from '@documenso/trpc/react';
 import { cn } from '@documenso/ui/lib/utils';
 import { Button } from '@documenso/ui/primitives/button';
@@ -20,8 +19,6 @@ import { OrgMenuSwitcher } from './org-menu-switcher';
 export type HeaderProps = HTMLAttributes<HTMLDivElement>;
 
 export const Header = ({ className, ...props }: HeaderProps) => {
-  const params = useParams();
-
   const { organisations } = useSession();
 
   const [isCommandMenuOpen, setIsCommandMenuOpen] = useState(false);
@@ -61,7 +58,7 @@ export const Header = ({ className, ...props }: HeaderProps) => {
     >
       <div className="mx-auto flex w-full max-w-screen-xl items-center justify-between gap-x-4 px-4 md:justify-normal md:px-8">
         <Link
-          to={getRootHref(params)}
+          to="/home"
           className="hidden items-center gap-2.5 rounded-md ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 md:flex"
         >
           <svg width="28" height="28" viewBox="0 0 48 48" fill="none" aria-hidden="true">
