@@ -2,6 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 
 type Choice = { label: string; value: string };
 
+type FormField = {
+  key: string;
+  label: string;
+  type: 'choice' | 'text';
+  choices?: Choice[];
+  placeholder?: string;
+};
+
 type ChatMessage = {
   role: 'user' | 'assistant';
   text: string;
@@ -9,6 +17,8 @@ type ChatMessage = {
   // Tap-to-answer options for a question (e.g. financing type, yes/no). Sending
   // a choice posts its `value` as the agent's reply.
   choices?: Choice[];
+  // A whole intake form to fill on one card, then submit at once.
+  form?: FormField[];
 };
 
 const GREETING: ChatMessage = {
@@ -24,6 +34,8 @@ export function ContractChat() {
   // Text handed in from the /home hero box, queued to auto-send once the panel
   // is open (see the effect below).
   const [pending, setPending] = useState<string | null>(null);
+  // Selections for the current intake form (field key -> chosen value / text).
+  const [formSel, setFormSel] = useState<Record<string, string>>({});
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Let other parts of the app (e.g. the /home chat box) open this panel by
@@ -65,7 +77,12 @@ export function ContractChat() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text, history }),
       });
-      const data = (await res.json()) as { reply?: string; url?: string; choices?: Choice[] };
+      const data = (await res.json()) as {
+        reply?: string;
+        url?: string;
+        choices?: Choice[];
+        form?: FormField[];
+      };
       setMessages((prev) => [
         ...prev,
         {
@@ -73,6 +90,7 @@ export function ContractChat() {
           text: data.reply ?? 'Sorry, something went wrong.',
           url: data.url,
           choices: data.choices,
+          form: data.form,
         },
       ]);
     } catch {
@@ -95,6 +113,26 @@ export function ContractChat() {
       setPending(null);
     }
   }, [pending]);
+
+  // Turn the filled intake form into one message and send it in a single shot.
+  function submitForm(fields: FormField[]) {
+    if (sending) return;
+    const parts = fields
+      .map((f) => {
+        const v = (formSel[f.key] ?? '').trim();
+        if (!v) return null;
+        if (f.type === 'text') {
+          if (f.key === 'address') return `at ${v}`;
+          if (f.key === 'buyer') return `buyer ${v}`;
+          if (f.key === 'price') return `price ${v}`;
+          return v;
+        }
+        return v;
+      })
+      .filter(Boolean);
+    setFormSel({});
+    void send(parts.join('. '));
+  }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -140,7 +178,7 @@ export function ContractChat() {
                 className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
+                  className={`${m.form ? 'w-full' : 'max-w-[85%]'} rounded-2xl px-3 py-2 text-sm ${
                     m.role === 'user' ? 'bg-[#262626] text-white' : 'bg-gray-100 text-gray-800'
                   }`}
                 >
@@ -169,6 +207,54 @@ export function ContractChat() {
                           {c.label}
                         </button>
                       ))}
+                    </div>
+                  )}
+                  {/* One-card intake form — tap through every question, then submit. */}
+                  {m.form && i === messages.length - 1 && (
+                    <div className="mt-2.5 space-y-2.5">
+                      {m.form.map((f) => (
+                        <div key={f.key}>
+                          <p className="mb-1 text-[11px] font-semibold text-gray-500">{f.label}</p>
+                          {f.type === 'text' ? (
+                            <input
+                              value={formSel[f.key] ?? ''}
+                              onChange={(e) =>
+                                setFormSel((s) => ({ ...s, [f.key]: e.target.value }))
+                              }
+                              placeholder={f.placeholder}
+                              className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-[#262626]"
+                            />
+                          ) : (
+                            <div className="flex flex-wrap gap-1.5">
+                              {f.choices?.map((c) => {
+                                const active = formSel[f.key] === c.value;
+                                return (
+                                  <button
+                                    key={c.value}
+                                    onClick={() => setFormSel((s) => ({ ...s, [f.key]: c.value }))}
+                                    className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+                                      active
+                                        ? 'border-[#262626] bg-[#262626] text-white'
+                                        : 'border-gray-300 bg-white text-gray-700 hover:border-[#262626]'
+                                    }`}
+                                  >
+                                    {c.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      <button
+                        onClick={() => submitForm(m.form ?? [])}
+                        disabled={
+                          sending || !(m.form ?? []).every((f) => (formSel[f.key] ?? '').trim())
+                        }
+                        className="mt-1 w-full rounded-lg bg-[#262626] px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#3d3d3d] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Create contract
+                      </button>
                     </div>
                   )}
                 </div>

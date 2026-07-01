@@ -35,6 +35,17 @@ type ParsedRequest = {
   hasWell: 'yes' | 'no' | '';
   electHomeInspection: 'yes' | 'no' | '';
   firstDeal: 'yes' | 'no' | '';
+  buyerCount: number;
+  sellerCount: number;
+};
+
+// One field in the quick intake form the chat renders as a single tap-through card.
+type FormField = {
+  key: string;
+  label: string;
+  type: 'choice' | 'text';
+  choices?: { label: string; value: string }[];
+  placeholder?: string;
 };
 
 const EXTRACTION_SCHEMA = {
@@ -104,6 +115,14 @@ const EXTRACTION_SCHEMA = {
       description:
         "Whether this is the agent's first deal with this buyer (triggers buyer-agency/CIS/affiliated-business forms). Empty string if not stated.",
     },
+    buyerCount: {
+      type: 'number',
+      description: 'How many buyers are on the deal (1 or 2). 0 if not stated.',
+    },
+    sellerCount: {
+      type: 'number',
+      description: 'How many sellers are on the deal (1 or 2). 0 if not stated.',
+    },
   },
   required: [
     'state',
@@ -119,6 +138,8 @@ const EXTRACTION_SCHEMA = {
     'hasWell',
     'electHomeInspection',
     'firstDeal',
+    'buyerCount',
+    'sellerCount',
   ],
   additionalProperties: false,
 } as const;
@@ -270,8 +291,9 @@ export async function action({ request }: { request: Request }) {
         'Accept casual language: "cash deal" -> financing cash; "10k down" -> downPayment 10000; ' +
         '"20% down" -> downPayment 0.2; "waive inspection" -> electHomeInspection no; ' +
         '"settle in 45 days" -> settlementDays 45; "485k" -> purchasePrice 485000. ' +
-        'A short reply like "DE", "cash", "no septic", "first one", or "Jacob Arnberger" answers ' +
-        'the most recent question — apply it to the correct field. ' +
+        'A short reply like "DE", "cash", "no septic", "first one", "2 buyers", or "Jacob ' +
+        'Arnberger" answers the most recent question — apply it to the correct field. ' +
+        'Capture how many buyers and how many sellers are on the deal (1 or 2 each) when stated. ' +
         'Use the empty string for unstated text/enum fields and 0 for unstated numbers. NEVER ' +
         'invent values: only set septic, well, financing, inspection, or first-deal when the ' +
         'realtor actually says so — otherwise leave them empty.',
@@ -324,124 +346,142 @@ export async function action({ request }: { request: Request }) {
     );
   }
 
-  // 2. Hard requirements — ask one at a time. State is a tap-to-choose question;
-  //    address and buyer name must be typed.
-  if (!parsed.state || !VALID_STATES.has(parsed.state)) {
-    return Response.json(
-      {
-        reply: 'Which state is this contract for?',
-        choices: [
-          { label: 'Pennsylvania', value: 'PA' },
-          { label: 'Maryland', value: 'MD' },
-          { label: 'Delaware', value: 'DE' },
-        ],
-      },
-      { status: 200 },
-    );
-  }
-  if (!parsed.address) {
-    return Response.json({ reply: 'What property address should I use?' }, { status: 200 });
-  }
-  if (!parsed.buyerName) {
-    return Response.json(
-      { reply: 'Who is the buyer? Please include their full name.' },
-      { status: 200 },
-    );
-  }
-
-  // 3. Look up the property to enrich the loop (city/county/price). Optional — a
+  // 2. Look up the property to enrich the loop (city/county/price). Optional — a
   //    realtor can start a contract for an address not yet synced from MLS.
-  const property = await findProperty(parsed.address);
+  const property = parsed.address ? await findProperty(parsed.address) : null;
   const address = property?.address ?? parsed.address;
   const city = String((property as { city?: unknown } | null)?.city ?? '');
   const county = String((property as { county?: unknown } | null)?.county ?? '') || parsed.county;
   const price =
     parsed.purchasePrice || Number((property as { price?: unknown } | null)?.price) || 0;
 
-  // 4. Interview the agent for the deal terms — ONE question at a time, each with
-  //    clickable answer choices so they tap instead of type. Each answer maps to
-  //    a field; once answered we move to the next missing one. We never ask for
-  //    things with firm defaults (deposit-due days, inspection window, mortgage-
-  //    commitment days, loan term) or that come from MLS / another screen (parcel,
-  //    listing agent, buyer phone & email). Empty = "not stated yet".
-  if (!parsed.financing) {
-    return Response.json(
-      {
-        reply: 'How is the buyer financing this purchase?',
-        choices: [
-          { label: 'Cash', value: 'Cash deal' },
-          { label: 'Conventional', value: 'Conventional financing' },
-          { label: 'FHA', value: 'FHA financing' },
-          { label: 'VA', value: 'VA financing' },
-          { label: 'USDA', value: 'USDA financing' },
-        ],
-      },
-      { status: 200 },
-    );
+  // 3. Gather everything still missing into ONE quick intake form — the agent taps
+  //    through the choices in a single card instead of answering one at a time. We
+  //    never ask for things with firm defaults (deposit-due days, inspection window,
+  //    mortgage-commitment days, loan term) or that come from MLS / another screen
+  //    (parcel, listing agent, buyer phone & email). Empty = "not stated yet".
+  const form: FormField[] = [];
+  if (!parsed.state || !VALID_STATES.has(parsed.state)) {
+    form.push({
+      key: 'state',
+      label: 'Which state?',
+      type: 'choice',
+      choices: [
+        { label: 'Pennsylvania', value: 'PA' },
+        { label: 'Maryland', value: 'MD' },
+        { label: 'Delaware', value: 'DE' },
+      ],
+    });
   }
-  if (parsed.state === 'DE' && !county) {
-    return Response.json(
-      {
-        reply: 'Which Delaware county is the property in?',
-        choices: [
-          { label: 'New Castle', value: 'New Castle County' },
-          { label: 'Kent', value: 'Kent County' },
-          { label: 'Sussex', value: 'Sussex County' },
-        ],
-      },
-      { status: 200 },
-    );
+  if (!parsed.address) {
+    form.push({
+      key: 'address',
+      label: 'Property address',
+      type: 'text',
+      placeholder: '123 Memorial Dr',
+    });
   }
-  if (!parsed.hasSeptic) {
-    return Response.json(
-      {
-        reply: 'Does the property have a septic system?',
-        choices: [
-          { label: 'Yes', value: 'Yes, it has a septic system' },
-          { label: 'No', value: 'No septic system' },
-        ],
-      },
-      { status: 200 },
-    );
-  }
-  if (!parsed.hasWell) {
-    return Response.json(
-      {
-        reply: 'Does the property have a well?',
-        choices: [
-          { label: 'Yes', value: 'Yes, it has a well' },
-          { label: 'No', value: 'No well' },
-        ],
-      },
-      { status: 200 },
-    );
-  }
-  if (!parsed.electHomeInspection) {
-    return Response.json(
-      {
-        reply: 'Do you want to include a home inspection contingency?',
-        choices: [
-          { label: 'Keep inspection (recommended)', value: 'Keep the home inspection' },
-          { label: 'Waive inspection', value: 'Waive the home inspection' },
-        ],
-      },
-      { status: 200 },
-    );
-  }
-  if (!parsed.firstDeal) {
-    return Response.json(
-      {
-        reply: 'Is this your first deal with this buyer?',
-        choices: [
-          { label: 'Yes — first deal', value: 'Yes, this is my first deal with this buyer' },
-          { label: 'No — worked together before', value: 'No, not our first deal with this buyer' },
-        ],
-      },
-      { status: 200 },
-    );
+  if (!parsed.buyerName) {
+    form.push({ key: 'buyer', label: 'Buyer name', type: 'text', placeholder: 'Full name' });
   }
   if (price <= 0) {
-    return Response.json({ reply: 'What is the purchase price?' }, { status: 200 });
+    form.push({ key: 'price', label: 'Purchase price', type: 'text', placeholder: '$500,000' });
+  }
+  if (!parsed.buyerCount) {
+    form.push({
+      key: 'buyers',
+      label: 'How many buyers?',
+      type: 'choice',
+      choices: [
+        { label: '1 buyer', value: '1 buyer' },
+        { label: '2 buyers', value: '2 buyers' },
+      ],
+    });
+  }
+  if (!parsed.sellerCount) {
+    form.push({
+      key: 'sellers',
+      label: 'How many sellers?',
+      type: 'choice',
+      choices: [
+        { label: '1 seller', value: '1 seller' },
+        { label: '2 sellers', value: '2 sellers' },
+      ],
+    });
+  }
+  if (!parsed.financing) {
+    form.push({
+      key: 'financing',
+      label: 'Financing',
+      type: 'choice',
+      choices: [
+        { label: 'Cash', value: 'Cash deal' },
+        { label: 'Conventional', value: 'Conventional financing' },
+        { label: 'FHA', value: 'FHA financing' },
+        { label: 'VA', value: 'VA financing' },
+        { label: 'USDA', value: 'USDA financing' },
+      ],
+    });
+  }
+  if (parsed.state === 'DE' && !county) {
+    form.push({
+      key: 'county',
+      label: 'County',
+      type: 'choice',
+      choices: [
+        { label: 'New Castle', value: 'New Castle County' },
+        { label: 'Kent', value: 'Kent County' },
+        { label: 'Sussex', value: 'Sussex County' },
+      ],
+    });
+  }
+  if (!parsed.hasSeptic) {
+    form.push({
+      key: 'septic',
+      label: 'Septic system?',
+      type: 'choice',
+      choices: [
+        { label: 'Yes', value: 'Yes, it has a septic system' },
+        { label: 'No', value: 'No septic system' },
+      ],
+    });
+  }
+  if (!parsed.hasWell) {
+    form.push({
+      key: 'well',
+      label: 'Well?',
+      type: 'choice',
+      choices: [
+        { label: 'Yes', value: 'Yes, it has a well' },
+        { label: 'No', value: 'No well' },
+      ],
+    });
+  }
+  if (!parsed.electHomeInspection) {
+    form.push({
+      key: 'inspection',
+      label: 'Home inspection?',
+      type: 'choice',
+      choices: [
+        { label: 'Keep (recommended)', value: 'Keep the home inspection' },
+        { label: 'Waive', value: 'Waive the home inspection' },
+      ],
+    });
+  }
+  if (!parsed.firstDeal) {
+    form.push({
+      key: 'firstDeal',
+      label: 'First deal with this buyer?',
+      type: 'choice',
+      choices: [
+        { label: 'Yes', value: 'Yes, this is my first deal with this buyer' },
+        { label: 'No', value: 'No, not our first deal with this buyer' },
+      ],
+    });
+  }
+
+  if (form.length > 0) {
+    return Response.json({ reply: "A few quick details and I'll build it:", form }, { status: 200 });
   }
 
   // 5. Seed the contract field values from everything gathered so the Fill page
