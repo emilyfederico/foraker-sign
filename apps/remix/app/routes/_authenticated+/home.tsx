@@ -118,7 +118,7 @@ export default function HomePage() {
         </div>
 
         <main className="center">
-          <h1 className="hl display up d2">{"Let's write your contract."}</h1>
+          <h1 className="hl display up d2">Write an Offer</h1>
 
           <form className="ask up d3" onSubmit={startAi}>
             <span className="plus" aria-hidden="true">
